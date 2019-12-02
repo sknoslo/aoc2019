@@ -1,8 +1,9 @@
 module Main where
 
-import           System.Environment
+import System.Environment
 
-import           Day01
+import Day01
+import Day02
 
 main :: IO ()
 main = do
@@ -10,8 +11,9 @@ main = do
   contents <- getContents
   case args of
     ["1"] -> Day01.solve contents
+    ["2"] -> Day02.solve contents
     [day] -> putStrLn ("Day " ++ day ++ " not solved yet")
-    _     -> usage
+    _ -> usage
 
 usage :: IO ()
 usage = do

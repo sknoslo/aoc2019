@@ -22,7 +22,7 @@ fuelRequired mass = mass `div` 3 - 2
 fuelRequired' :: Int -> Int
 fuelRequired' mass =
   let initial = fuelRequired mass
-   in sum (takeWhile (> 0) (iterate fuelRequired initial))
+   in sum . takeWhile (> 0) . iterate fuelRequired $ initial
 
 parseInput :: String -> [Int]
 parseInput = map read . lines
