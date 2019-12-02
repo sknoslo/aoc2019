@@ -2,9 +2,14 @@ module Day02
   ( solve
   ) where
 
+import Data.Vector
+import Data.Vector.Mutable
+import Data.Void
 import Text.Megaparsec
+import Text.Megaparsec.Char
+import qualified Text.Megaparsec.Char.Lexer as L
 
-type Parser = Parsec Void Text
+type Parser = Parsec Void String
 
 -- day 2
 solve :: String -> IO ()
@@ -24,5 +29,10 @@ initProgram :: [Int] -> Program
 initProgram (current:ahead) =
   Program {behind = [], current = current, ahead = ahead}
 
-parseProgram :: String -> Program
-parseProgram = initProgram . map read . split ","
+parseProgram :: String -> MVector Int Int
+parseProgram contents =
+  let (Right codes) = parse pIntcodes "" contents
+   in fromList codes
+
+pIntcodes :: Parser [Int]
+pIntcodes = L.decimal `sepBy` char ','
