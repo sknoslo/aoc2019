@@ -18,93 +18,50 @@ fn main() -> io::Result<()> {
 }
 
 fn part1(wire_a_inst: &Vec<Instruction>, wire_b_inst: &Vec<Instruction>) -> isize {
-    let origin = Point::new(0, 0);
-    let mut current = origin;
+    let wire_a = get_path(wire_a_inst);
+    let wire_b = get_path(wire_b_inst);
 
-    let mut wire_a = HashSet::new();
-    let mut wire_b = HashSet::new();
+    let points_a: HashSet<_> = wire_a.keys().collect();
+    let points_b: HashSet<_> = wire_b.keys().collect();
+    let intersections = points_a.intersection(&points_b);
 
-    for inst in wire_a_inst {
-        let points = current.go(inst);
-        for point in points.iter() {
-            wire_a.insert(*point);
-        }
-        current = *points.last().unwrap();
-    }
-
-    current = origin;
-
-    for inst in wire_b_inst {
-        let points = current.go(inst);
-        for point in points.iter() {
-            wire_b.insert(*point);
-        }
-        current = *points.last().unwrap();
-    }
-
-    let intersections: Vec<_> = wire_a.intersection(&wire_b).collect();
-
-    let mut min = std::isize::MAX;
-
-    for p in intersections {
-        let dist = p.dist_to(origin);
-
-        min = if dist < min { dist } else { min };
-    }
-
-    min
+    intersections
+        .map(|point| point.dist_to(Point::new(0, 0)))
+        .min()
+        .expect("No Min found!")
 }
 
 fn part2(wire_a_inst: &Vec<Instruction>, wire_b_inst: &Vec<Instruction>) -> isize {
+    let wire_a = get_path(wire_a_inst);
+    let wire_b = get_path(wire_b_inst);
+
+    let points_a: HashSet<_> = wire_a.keys().collect();
+    let points_b: HashSet<_> = wire_b.keys().collect();
+    let intersections = points_a.intersection(&points_b);
+
+    intersections
+        .map(|point| wire_a.get(point).unwrap() + wire_b.get(point).unwrap())
+        .min()
+        .expect("No Min found!")
+}
+
+fn get_path(instructions: &Vec<Instruction>) -> HashMap<Point, isize> {
     let origin = Point::new(0, 0);
     let mut current = origin;
 
-    let mut map = HashMap::new();
+    let mut path = HashMap::new();
 
     let mut steps = 0;
-
-    for inst in wire_a_inst {
+    for inst in instructions {
         let points = current.go(inst);
-        for point in points.iter() {
+        for &point in points.iter() {
             steps += 1;
-            let cell = map.entry(*point).or_insert(MapCell::Empty);
-
-            match cell {
-                MapCell::Empty => *cell = MapCell::A(steps),
-                MapCell::A(_) => {} // intersect self, ignore to keep lowest steps (the first one)
-                _ => panic!("Ahhhhh"),
-            }
+            path.insert(point, steps);
+            current = point;
         }
-        current = *points.last().unwrap();
     }
 
-    current = origin;
-
-    let mut steps = 0;
-
-    for inst in wire_b_inst {
-        let points = current.go(inst);
-        for point in points.iter() {
-            steps += 1;
-            let cell = map.entry(*point).or_insert(MapCell::Empty);
-
-            match cell {
-                MapCell::Empty => *cell = MapCell::B(steps),
-                MapCell::A(a_steps) => *cell = MapCell::Intersection(steps + *a_steps),
-                MapCell::B(_) => {} // intersect self, just ignore
-                _ => panic!("Ahhhhh"),
-            }
-        }
-        current = *points.last().unwrap();
-    }
-
-    map.values()
-        .map(|v| match v {
-            &MapCell::Intersection(steps) => steps,
-            _ => std::isize::MAX,
-        })
-        .min()
-        .expect("didn't find a min!")
+    path
 }
 
 fn parse_input(input: &str) -> Vec<Vec<Instruction>> {
@@ -116,14 +73,6 @@ fn parse_input(input: &str) -> Vec<Vec<Instruction>> {
                 .collect()
         })
         .collect()
-}
-
-#[derive(Debug)]
-enum MapCell {
-    Empty,
-    A(isize),            // Contains number of steps A took to get here
-    B(isize),            // Contains number of steps B took to get here
-    Intersection(isize), // Contains the combined number of steps to intersect
 }
 
 #[derive(Debug)]
