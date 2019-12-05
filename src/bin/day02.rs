@@ -16,11 +16,11 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn parse_input(input: &str) -> Vec<usize> {
+fn parse_input(input: &str) -> Vec<isize> {
     input.split(',').map(|v| v.parse().unwrap()).collect()
 }
 
-fn part1(program: &Vec<usize>) -> usize {
+fn part1(program: &Vec<isize>) -> isize {
     let mut computer = Computer::new();
 
     computer.load(program);
@@ -33,7 +33,7 @@ fn part1(program: &Vec<usize>) -> usize {
     computer.read(0)
 }
 
-fn part2(program: &Vec<usize>) -> usize {
+fn part2(program: &Vec<isize>) -> isize {
     let target = 19690720;
 
     let mut computer = Computer::new();
