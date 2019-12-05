@@ -1,8 +1,26 @@
+#[derive(Debug)]
 enum RAM {
     Unloaded,
     Loaded(Vec<isize>),
 }
 
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum Mode {
+    Position,
+    Immediate,
+}
+
+impl From<isize> for Mode {
+    fn from(i: isize) -> Self {
+        match i {
+            0 => Self::Position,
+            1 => Self::Immediate,
+            _ => panic!("I don't know that mode!"),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Computer {
     ip: isize,
     memory: RAM,
@@ -15,12 +33,12 @@ pub struct Computer {
 // will ever take. N is probably 3, but who really knows...
 //
 // values are read right-to-left.
-fn get_opcode_and_mode_garbage(inst: isize) -> (isize, isize, isize, isize) {
+fn get_opcode_and_mode_garbage(inst: isize) -> (isize, Mode, Mode, Mode) {
     (
         inst % 100,
-        inst / 100 % 10,
-        inst / 1000 % 10,
-        inst / 10000 % 10,
+        Mode::from(inst / 100 % 10),
+        Mode::from(inst / 1000 % 10),
+        Mode::from(inst / 10000 % 10),
     )
 }
 
@@ -46,11 +64,38 @@ impl Computer {
         }
     }
 
+    pub fn writem(&mut self, address: isize, value: isize, mode: Mode) {
+        match mode {
+            Mode::Position => {
+                let target = self.read(address);
+                self.write(target, value);
+            }
+            Mode::Immediate => {
+                self.write(address, value);
+            }
+        }
+    }
+
     pub fn read(&self, address: isize) -> isize {
         match self.memory {
             RAM::Unloaded => panic!("No program is loaded"), // TODO: Handle errors?
             RAM::Loaded(ref memory) => memory[address as usize],
         }
+    }
+
+    pub fn readm(&self, address: isize, mode: Mode) -> isize {
+        match mode {
+            Mode::Position => self.read(self.read(address)),
+            Mode::Immediate => self.read(address),
+        }
+    }
+
+    pub fn send(&mut self, value: isize) {
+        self.input.push(value);
+    }
+
+    pub fn receive(&self) -> std::slice::Iter<isize> {
+        self.output.iter()
     }
 
     fn read_input(&mut self) -> isize {
@@ -64,35 +109,43 @@ impl Computer {
     pub fn run(&mut self) {
         loop {
             match get_opcode_and_mode_garbage(self.read(self.ip)) {
-                (1, _, _, _) => {
-                    let a = self.read(self.ip + 1);
-                    let b = self.read(self.ip + 2);
-                    let target = self.read(self.ip + 3);
+                (1, m1, m2, m3) => {
+                    let p1 = self.ip + 1;
+                    let p2 = self.ip + 2;
+                    let p3 = self.ip + 3;
 
-                    self.write(target, self.read(a) + self.read(b));
+                    self.writem(p3, self.readm(p1, m1) + self.readm(p2, m2), m3);
                     self.ip = self.ip + 4;
                 }
-                (2, _, _, _) => {
-                    let a = self.read(self.ip + 1);
-                    let b = self.read(self.ip + 2);
-                    let target = self.read(self.ip + 3);
+                (2, m1, m2, m3) => {
+                    let p1 = self.ip + 1;
+                    let p2 = self.ip + 2;
+                    let p3 = self.ip + 3;
 
-                    self.write(target, self.read(a) * self.read(b));
+                    self.writem(p3, self.readm(p1, m1) * self.readm(p2, m2), m3);
                     self.ip = self.ip + 4;
                 }
-                (3, _, _, _) => {
+                (3, m1, _, _) => {
                     let input = self.read_input();
 
-                    let target = self.read(self.ip + 1);
+                    let p1 = self.ip + 1;
 
-                    self.write(target, input);
+                    self.writem(p1, input, m1);
                     self.ip = self.ip + 2;
                 }
-                (4, _, _, _) => {
-                    let a = self.read(self.ip + 1);
+                (4, m1, _, _) => {
+                    let p1 = self.ip + 1;
 
-                    self.write_output(self.read(a));
+                    self.write_output(self.readm(p1, m1));
                     self.ip = self.ip + 2;
+                }
+                (5, m1, m2, _) => {
+                    let p1 = self.ip + 1;
+                    let p2 = self.ip + 2;
+
+                    if self.readm(p1, m1) != 0 {
+                        self.ip = self.readm(p2, m2);
+                    }
                 }
                 (99, _, _, _) => break,
                 _ => panic!("That shouldn't have happened"),
@@ -107,7 +160,13 @@ mod tests {
 
     #[test]
     fn test_garbage_opcode_thing() {
-        assert_eq!(get_opcode_and_mode_garbage(1002), (2, 0, 1, 0));
-        assert_eq!(get_opcode_and_mode_garbage(11299), (99, 2, 1, 1));
+        assert_eq!(
+            get_opcode_and_mode_garbage(1002),
+            (2, Mode::Position, Mode::Immediate, Mode::Position)
+        );
+        assert_eq!(
+            get_opcode_and_mode_garbage(10099),
+            (99, Mode::Position, Mode::Position, Mode::Immediate)
+        );
     }
 }
