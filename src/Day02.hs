@@ -2,8 +2,7 @@ module Day02
   ( solve
   ) where
 
-import Data.Vector
-import Data.Vector.Mutable
+import qualified Data.Vector as V
 import Data.Void
 import Text.Megaparsec
 import Text.Megaparsec.Char
@@ -15,24 +14,12 @@ type Parser = Parsec Void String
 solve :: String -> IO ()
 solve contents =
   let program = parseProgram contents
-   in print program
+   in print (V.sum program)
 
-data Program =
-  Program
-    { behind :: [Int]
-    , current :: Int
-    , ahead :: [Int]
-    }
-  deriving (Show)
-
-initProgram :: [Int] -> Program
-initProgram (current:ahead) =
-  Program {behind = [], current = current, ahead = ahead}
-
-parseProgram :: String -> MVector Int Int
+parseProgram :: String -> V.Vector Int
 parseProgram contents =
   let (Right codes) = parse pIntcodes "" contents
-   in fromList codes
+   in V.fromList codes
 
 pIntcodes :: Parser [Int]
 pIntcodes = L.decimal `sepBy` char ','
