@@ -68,6 +68,7 @@ impl Computer {
         match mode {
             Mode::Position => {
                 let target = self.read(address);
+
                 self.write(target, value);
             }
             Mode::Immediate => {
@@ -145,28 +146,46 @@ impl Computer {
 
                     if self.readm(p1, m1) != 0 {
                         self.ip = self.readm(p2, m2);
+                    } else {
+                        self.ip = self.ip + 3;
                     }
                 }
+                (6, m1, m2, _) => {
+                    let p1 = self.ip + 1;
+                    let p2 = self.ip + 2;
+
+                    if self.readm(p1, m1) == 0 {
+                        self.ip = self.readm(p2, m2);
+                    } else {
+                        self.ip = self.ip + 3;
+                    }
+                }
+                (7, m1, m2, m3) => {
+                    let p1 = self.ip + 1;
+                    let p2 = self.ip + 2;
+                    let p3 = self.ip + 3;
+
+                    let result = self.readm(p1, m1) < self.readm(p2, m2);
+
+                    self.writem(p3, result as isize, m3);
+                    self.ip = self.ip + 4;
+                }
+                (8, m1, m2, m3) => {
+                    let p1 = self.ip + 1;
+                    let p2 = self.ip + 2;
+                    let p3 = self.ip + 3;
+
+                    let result = self.readm(p1, m1) == self.readm(p2, m2);
+
+                    self.writem(p3, result as isize, m3);
+                    self.ip = self.ip + 4;
+                }
                 (99, _, _, _) => break,
-                _ => panic!("That shouldn't have happened"),
+                (code, m1, m2, m3) => {
+                    println!("{}, {:?}, {:?}, {:?}", code, m1, m2, m3);
+                    panic!("That shouldn't have happened");
+                }
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_garbage_opcode_thing() {
-        assert_eq!(
-            get_opcode_and_mode_garbage(1002),
-            (2, Mode::Position, Mode::Immediate, Mode::Position)
-        );
-        assert_eq!(
-            get_opcode_and_mode_garbage(10099),
-            (99, Mode::Position, Mode::Position, Mode::Immediate)
-        );
     }
 }
