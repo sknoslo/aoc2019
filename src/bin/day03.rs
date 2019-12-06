@@ -1,10 +1,8 @@
-use aoc2019::get_puzzle_input;
 use std::collections::{HashMap, HashSet};
-use std::io;
 use std::str::FromStr;
 
-fn main() -> io::Result<()> {
-    let input = get_puzzle_input()?;
+fn main() {
+    let input = include_str!("../../input/03.txt").trim();
 
     let input = parse_input(&input);
 
@@ -13,8 +11,6 @@ fn main() -> io::Result<()> {
 
     let p2 = part2(&input[0], &input[1]);
     println!("part 2: {}", p2);
-
-    Ok(())
 }
 
 fn part1(wire_a_inst: &Vec<Instruction>, wire_b_inst: &Vec<Instruction>) -> isize {

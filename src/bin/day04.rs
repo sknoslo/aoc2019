@@ -1,8 +1,5 @@
-use aoc2019::get_puzzle_input;
-use std::io;
-
-fn main() -> io::Result<()> {
-    let input = get_puzzle_input()?;
+fn main() {
+    let input = include_str!("../../input/04.txt").trim();
 
     let (lower, upper) = parse_input(&input);
 
@@ -13,8 +10,6 @@ fn main() -> io::Result<()> {
     let p2 = part2(&mut lower.clone(), &mut upper.clone());
 
     println!("part 2: {}", p2);
-
-    Ok(())
 }
 
 fn part1(mut lower: &mut Vec<u8>, upper: &mut Vec<u8>) -> usize {

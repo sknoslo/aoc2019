@@ -1,8 +1,5 @@
-use std::io;
-use aoc2019::get_puzzle_input;
-
-fn main() -> io::Result<()> {
-    let input = get_puzzle_input()?;
+fn main() {
+    let input = include_str!("../../input/01.txt").trim();
 
     let masses = parse_input(&input);
 
@@ -11,8 +8,6 @@ fn main() -> io::Result<()> {
 
     println!("part 1: {}", p1);
     println!("part 2: {}", p2);
-
-    Ok(())
 }
 
 fn parse_input(input: &str) -> Vec<isize> {
@@ -28,16 +23,18 @@ fn part1(masses: &Vec<isize>) -> isize {
 }
 
 fn part2(masses: &Vec<isize>) -> isize {
-    masses.iter().map(|&mass| {
-        let mut cost = fuel_required(mass);
-        let mut total_cost = 0;
-        
-        while cost > 0 {
-            total_cost += cost;
-            cost = fuel_required(cost);
-        }
+    masses
+        .iter()
+        .map(|&mass| {
+            let mut cost = fuel_required(mass);
+            let mut total_cost = 0;
 
-        total_cost
-    }).sum()
+            while cost > 0 {
+                total_cost += cost;
+                cost = fuel_required(cost);
+            }
+
+            total_cost
+        })
+        .sum()
 }
-

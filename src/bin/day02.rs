@@ -1,8 +1,7 @@
-use aoc2019::{computer::Computer, get_puzzle_input};
-use std::io;
+use aoc2019::computer::Computer;
 
-fn main() -> io::Result<()> {
-    let input = get_puzzle_input()?;
+fn main() {
+    let input = include_str!("../../input/02.txt").trim();
 
     let input = parse_input(&input);
 
@@ -12,8 +11,6 @@ fn main() -> io::Result<()> {
 
     let p2 = part2(&input);
     println!("part 2: {}", p2);
-
-    Ok(())
 }
 
 fn parse_input(input: &str) -> Vec<isize> {

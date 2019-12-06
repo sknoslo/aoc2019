@@ -1,7 +1,6 @@
 use aoc2019::computer::Computer;
-use std::io;
 
-fn main() -> io::Result<()> {
+fn main() {
     let input = include_str!("../../input/05.txt").trim();
 
     let program = parse_input(&input);
@@ -13,8 +12,6 @@ fn main() -> io::Result<()> {
     let p2 = part2(&program);
 
     println!("part 2: {}", p2);
-
-    Ok(())
 }
 
 fn parse_input(input: &str) -> Vec<isize> {
