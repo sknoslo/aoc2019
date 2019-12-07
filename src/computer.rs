@@ -20,6 +20,10 @@ impl From<isize> for Mode {
     }
 }
 
+pub fn parse_program(input: &str) -> Vec<isize> {
+    input.split(',').map(|v| v.parse().unwrap()).collect()
+}
+
 #[derive(Debug)]
 pub struct Computer {
     ip: isize,
@@ -93,6 +97,10 @@ impl Computer {
 
     pub fn send(&mut self, value: isize) {
         self.input.push(value);
+    }
+
+    pub fn read_output(&mut self) -> isize {
+        self.output.pop().expect("no output!")
     }
 
     pub fn receive(&self) -> std::slice::Iter<isize> {
