@@ -27,10 +27,13 @@ fn part1(program: &Vec<isize>) -> isize {
 
     computer.run();
 
-    *computer
-        .receive()
-        .last()
-        .expect("no output received from the computer!")
+    let mut answer = 0;
+
+    while let Some(output) = computer.read_output() {
+        answer = output;
+    }
+
+    answer
 }
 
 fn part2(program: &Vec<isize>) -> isize {
@@ -42,8 +45,11 @@ fn part2(program: &Vec<isize>) -> isize {
 
     computer.run();
 
-    *computer
-        .receive()
-        .last()
-        .expect("no output received from the computer!")
+    let mut answer = 0;
+
+    while let Some(output) = computer.read_output() {
+        answer = output;
+    }
+
+    answer
 }

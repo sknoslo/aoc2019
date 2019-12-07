@@ -1,3 +1,6 @@
+use std::collections::vec_deque::Iter;
+use std::collections::VecDeque;
+
 #[derive(Debug)]
 enum RAM {
     Unloaded,
@@ -28,8 +31,14 @@ pub fn parse_program(input: &str) -> Vec<isize> {
 pub struct Computer {
     ip: isize,
     memory: RAM,
-    input: Vec<isize>,  // not sure exactly how input works yet.
-    output: Vec<isize>, // this probably makes sense for output.
+    input: VecDeque<isize>,
+    output: VecDeque<isize>,
+}
+
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum ExecutionResult {
+    Paused,
+    Halted,
 }
 
 // This function is stupid, but I don't know enough about the problem yet to make it better.
@@ -51,8 +60,8 @@ impl Computer {
         Self {
             ip: 0,
             memory: RAM::Unloaded,
-            input: Vec::new(),
-            output: Vec::new(),
+            input: VecDeque::new(),
+            output: VecDeque::new(),
         }
     }
 
@@ -96,26 +105,26 @@ impl Computer {
     }
 
     pub fn send(&mut self, value: isize) {
-        self.input.push(value);
+        self.input.push_front(value);
     }
 
-    pub fn read_output(&mut self) -> isize {
-        self.output.pop().expect("no output!")
+    pub fn read_output(&mut self) -> Option<isize> {
+        self.output.pop_back()
     }
 
-    pub fn receive(&self) -> std::slice::Iter<isize> {
+    pub fn receive(&self) -> Iter<isize> {
         self.output.iter()
     }
 
-    fn read_input(&mut self) -> isize {
-        self.input.pop().expect("no values in input!")
+    fn read_input(&mut self) -> Option<isize> {
+        self.input.pop_back()
     }
 
     fn write_output(&mut self, value: isize) {
-        self.output.push(value);
+        self.output.push_front(value);
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self) -> ExecutionResult {
         loop {
             match get_opcode_and_mode_garbage(self.read(self.ip)) {
                 (1, m1, m2, m3) => {
@@ -135,12 +144,14 @@ impl Computer {
                     self.ip = self.ip + 4;
                 }
                 (3, m1, _, _) => {
-                    let input = self.read_input();
+                    if let Some(input) = self.read_input() {
+                        let p1 = self.ip + 1;
 
-                    let p1 = self.ip + 1;
-
-                    self.writem(p1, input, m1);
-                    self.ip = self.ip + 2;
+                        self.writem(p1, input, m1);
+                        self.ip = self.ip + 2;
+                    } else {
+                        return ExecutionResult::Paused;
+                    }
                 }
                 (4, m1, _, _) => {
                     let p1 = self.ip + 1;
@@ -188,7 +199,7 @@ impl Computer {
                     self.writem(p3, result as isize, m3);
                     self.ip = self.ip + 4;
                 }
-                (99, _, _, _) => break,
+                (99, _, _, _) => return ExecutionResult::Halted,
                 (code, m1, m2, m3) => {
                     println!("{}, {:?}, {:?}, {:?}", code, m1, m2, m3);
                     panic!("That shouldn't have happened");
