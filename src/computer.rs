@@ -1,5 +1,4 @@
-use std::collections::vec_deque::Iter;
-use std::collections::VecDeque;
+use std::rc::Rc;
 
 #[derive(Debug)]
 enum RAM {
@@ -30,18 +29,57 @@ pub fn parse_program(input: &str) -> Vec<isize> {
 }
 
 #[derive(Debug)]
-pub struct Computer {
+pub struct Computer<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> {
     ip: isize,
     relative_base: isize,
     memory: RAM,
-    input: VecDeque<isize>,
-    output: VecDeque<isize>,
+    input: Rc<T>, // VecDeque<isize>,
+    output: Rc<R>,
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum ExecutionResult {
     Paused,
     Halted,
+}
+
+mod io {
+    use std::cell::RefCell;
+
+    pub trait IoDevice {
+        /**
+         * Read a value from an io device
+         */
+        fn read(&self) -> Option<isize>;
+
+        /**
+         * Write a value to an io device
+         */
+        fn write(&self, value: isize);
+    }
+
+    #[derive(Debug)]
+    pub struct QueuedIoDevice {
+        queue: RefCell<std::collections::VecDeque<isize>>,
+    }
+
+    impl QueuedIoDevice {
+        pub fn new() -> Self {
+            QueuedIoDevice {
+                queue: RefCell::new(std::collections::VecDeque::new()),
+            }
+        }
+    }
+
+    impl IoDevice for QueuedIoDevice {
+        fn read(&self) -> Option<isize> {
+            self.queue.borrow_mut().pop_back()
+        }
+
+        fn write(&self, value: isize) {
+            self.queue.borrow_mut().push_front(value);
+        }
+    }
 }
 
 // This function is stupid, but I don't know enough about the problem yet to make it better.
@@ -58,17 +96,19 @@ fn get_opcode_and_mode_garbage(inst: isize) -> (isize, Mode, Mode, Mode) {
     )
 }
 
-impl Computer {
+impl Computer<io::QueuedIoDevice, io::QueuedIoDevice> {
     pub fn new() -> Self {
         Self {
             ip: 0,
             relative_base: 0,
             memory: RAM::Unloaded,
-            input: VecDeque::new(),
-            output: VecDeque::new(),
+            input: Rc::new(io::QueuedIoDevice::new()),
+            output: Rc::new(io::QueuedIoDevice::new()),
         }
     }
+}
 
+impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Computer<T, R> {
     pub fn load(&mut self, program: &Vec<isize>) {
         // intcode can write values past the end of the initial program memory, so start with a
         // vector 10x the length and see what happens. May need to include a fn to extend the
@@ -122,24 +162,26 @@ impl Computer {
         }
     }
 
-    pub fn send(&mut self, value: isize) {
-        self.input.push_front(value);
+    // TODO: Shouldn't need this, should just require external input/output ownership and write to those
+    // directly.
+    pub fn send(&self, value: isize) {
+        self.input.write(value);
     }
 
-    pub fn read_output(&mut self) -> Option<isize> {
-        self.output.pop_back()
+    // TODO: Shouldn't need this, should just require external input/output ownership and write to those
+    // directly.
+    pub fn read_output(&self) -> Option<isize> {
+        self.output.read()
     }
 
-    pub fn receive(&self) -> Iter<isize> {
-        self.output.iter()
+    // TODO: These methods are probably not helpful anymore
+    fn read_input(&self) -> Option<isize> {
+        self.input.read()
     }
 
-    fn read_input(&mut self) -> Option<isize> {
-        self.input.pop_back()
-    }
-
+    // TODO: These methods are probably not helpful anymore
     fn write_output(&mut self, value: isize) {
-        self.output.push_front(value);
+        self.output.write(value);
     }
 
     pub fn run(&mut self) -> ExecutionResult {
@@ -247,7 +289,11 @@ mod tests {
         comp.load(&program);
         comp.run();
 
-        assert_eq!(comp.receive().rev().cloned().collect::<Vec<_>>(), program);
+        let mut output = Vec::new();
+        while let Some(v) = comp.read_output() {
+            output.push(v);
+        }
+        assert_eq!(output, program);
     }
 
     #[test]
