@@ -16,7 +16,7 @@ fn main() {
 }
 
 fn part1(program: &Vec<isize>) -> isize {
-    let mut computer = Computer::new();
+    let mut computer = Computer::with_queue_io();
     let mut max = 0;
 
     for permutation in (0..=4).into_iter().permutations(5) {
@@ -40,47 +40,45 @@ fn part1(program: &Vec<isize>) -> isize {
 }
 
 fn part2(program: &Vec<isize>) -> isize {
-    // TODO :do I need to pause on every output?
-    // day 5 and 2 will need to be altered.
+    let mut a = Computer::with_queue_io();
+    let mut b = Computer::with_queue_io();
+    let mut c = Computer::with_queue_io();
+    let mut d = Computer::with_queue_io();
+    let mut e = Computer::with_queue_io();
 
-    let mut amps = vec![
-        Computer::new(),
-        Computer::new(),
-        Computer::new(),
-        Computer::new(),
-        Computer::new(),
-    ];
+    a.connect_input_to(&mut e);
+    b.connect_input_to(&mut a);
+    c.connect_input_to(&mut b);
+    d.connect_input_to(&mut c);
+    e.connect_input_to(&mut d);
+
+    let mut amps = vec![a, b, c, d, e];
 
     let mut max = 0;
 
     for permutation in (5..=9).into_iter().permutations(5) {
-        let mut next_input = 0;
-
         for (i, amp) in amps.iter_mut().enumerate() {
             amp.load(&program);
             amp.send(permutation[i]);
         }
 
+        amps[0].send(0);
+
         'cycle: loop {
             for (i, amp) in amps.iter_mut().enumerate() {
-                amp.send(next_input);
-
                 match amp.run() {
                     ExecutionResult::Halted => {
-                        // this is weird? Assumes each amp halts in order, I think?
-                        next_input = amp.read_output().expect("Uh, oh. Halted with no output!");
-
                         if i == 4 {
-                            if next_input > max {
-                                max = next_input;
+                            let output = amp.read_output().expect("uh, oh. halted with no output!");
+
+                            if output > max {
+                                max = output;
                             }
 
                             break 'cycle;
                         }
                     }
-                    ExecutionResult::Paused => {
-                        next_input = amp.read_output().expect("Uh, oh. Paused with no output!");
-                    }
+                    ExecutionResult::Paused => {}
                 }
             }
         }

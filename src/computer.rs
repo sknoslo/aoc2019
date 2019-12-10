@@ -108,14 +108,25 @@ impl Computer<io::QueuedIoDevice, io::QueuedIoDevice> {
     }
 }
 
+impl<T: io::IoDevice + std::fmt::Debug> Computer<T, T> {
+    pub fn connect_input_to(&mut self, other: &Self) {
+        match other.output {
+            Some(ref o) => {
+                self.input = Some(o.clone());
+            }
+            _ => panic!("can't connect if other doesn't have output"),
+        }
+    }
+}
+
 impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Computer<T, R> {
-    pub fn new() -> Self {
+    pub fn new(input: Option<Rc<T>>, output: Option<Rc<R>>) -> Self {
         Self {
             ip: 0,
             relative_base: 0,
             memory: RAM::Unloaded,
-            input: None,
-            output: None,
+            input: input,
+            output: output,
         }
     }
 
@@ -354,19 +365,14 @@ mod tests {
         let program1 = vec![104, 42, 3, 1, 101, 42, 1, 1, 4, 1, 99];
         let program2 = vec![3, 1, 2, 1, 1, 1, 4, 1, 3, 1, 4, 1, 99];
 
-        let device1 = Rc::new(QueuedIoDevice::new());
-        let device2 = Rc::new(QueuedIoDevice::new());
+        let mut comp1 = Computer::new(None, Some(Rc::new(QueuedIoDevice::new())));
+        let mut comp2 = Computer::new(None, Some(Rc::new(QueuedIoDevice::new())));
 
-        let mut comp1 = Computer::new();
         comp1.load(&program1);
-        let mut comp2 = Computer::new();
         comp2.load(&program2);
 
-        comp1.attach_input_device(device1.clone()); //  <----+
-        comp1.attach_output_device(device2.clone()); // ---+ |
-                                                     //    | |
-        comp2.attach_input_device(device2.clone()); //  <--+ |
-        comp2.attach_output_device(device1.clone()); // -----+
+        comp1.connect_input_to(&comp2);
+        comp2.connect_input_to(&comp1);
 
         loop {
             comp1.run();
@@ -375,6 +381,6 @@ mod tests {
             }
         }
 
-        assert_eq!(device1.read(), Some(42 * 42 + 42));
+        assert_eq!(comp2.read_output(), Some(42 * 42 + 42));
     }
 }
