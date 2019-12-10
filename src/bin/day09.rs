@@ -15,7 +15,7 @@ fn main() {
 }
 
 fn part1(program: &Vec<isize>) -> isize {
-    let mut computer = Computer::new();
+    let mut computer = Computer::with_queue_io();
 
     computer.load(&program);
     computer.send(1); // initialize test mode
@@ -25,7 +25,7 @@ fn part1(program: &Vec<isize>) -> isize {
 }
 
 fn part2(program: &Vec<isize>) -> isize {
-    let mut computer = Computer::new();
+    let mut computer = Computer::with_queue_io();
 
     computer.load(&program);
     computer.send(2); // initialize BO0ST mode

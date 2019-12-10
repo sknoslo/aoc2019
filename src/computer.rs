@@ -33,8 +33,8 @@ pub struct Computer<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fm
     ip: isize,
     relative_base: isize,
     memory: RAM,
-    input: Rc<T>, // VecDeque<isize>,
-    output: Rc<R>,
+    input: Option<Rc<T>>,
+    output: Option<Rc<R>>,
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -43,7 +43,7 @@ pub enum ExecutionResult {
     Halted,
 }
 
-mod io {
+pub mod io {
     use std::cell::RefCell;
 
     pub trait IoDevice {
@@ -97,18 +97,28 @@ fn get_opcode_and_mode_garbage(inst: isize) -> (isize, Mode, Mode, Mode) {
 }
 
 impl Computer<io::QueuedIoDevice, io::QueuedIoDevice> {
-    pub fn new() -> Self {
+    pub fn with_queue_io() -> Self {
         Self {
             ip: 0,
             relative_base: 0,
             memory: RAM::Unloaded,
-            input: Rc::new(io::QueuedIoDevice::new()),
-            output: Rc::new(io::QueuedIoDevice::new()),
+            input: Some(Rc::new(io::QueuedIoDevice::new())),
+            output: Some(Rc::new(io::QueuedIoDevice::new())),
         }
     }
 }
 
 impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Computer<T, R> {
+    pub fn new() -> Self {
+        Self {
+            ip: 0,
+            relative_base: 0,
+            memory: RAM::Unloaded,
+            input: None,
+            output: None,
+        }
+    }
+
     pub fn load(&mut self, program: &Vec<isize>) {
         // intcode can write values past the end of the initial program memory, so start with a
         // vector 10x the length and see what happens. May need to include a fn to extend the
@@ -120,6 +130,14 @@ impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Compu
 
         self.ip = 0;
         self.memory = RAM::Loaded(memory);
+    }
+
+    pub fn attach_input_device(&mut self, input_device: Rc<T>) {
+        self.input = Some(input_device);
+    }
+
+    pub fn attach_output_device(&mut self, output_device: Rc<R>) {
+        self.output = Some(output_device);
     }
 
     pub fn write(&mut self, address: isize, value: isize) {
@@ -165,23 +183,33 @@ impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Compu
     // TODO: Shouldn't need this, should just require external input/output ownership and write to those
     // directly.
     pub fn send(&self, value: isize) {
-        self.input.write(value);
+        if let Some(ref input) = self.input {
+            input.write(value);
+        }
     }
 
     // TODO: Shouldn't need this, should just require external input/output ownership and write to those
     // directly.
     pub fn read_output(&self) -> Option<isize> {
-        self.output.read()
+        if let Some(ref output) = self.output {
+            output.read()
+        } else {
+            None
+        }
     }
 
-    // TODO: These methods are probably not helpful anymore
     fn read_input(&self) -> Option<isize> {
-        self.input.read()
+        if let Some(ref input) = self.input {
+            input.read()
+        } else {
+            None
+        }
     }
 
-    // TODO: These methods are probably not helpful anymore
     fn write_output(&mut self, value: isize) {
-        self.output.write(value);
+        if let Some(ref output) = self.output {
+            output.write(value);
+        }
     }
 
     pub fn run(&mut self) -> ExecutionResult {
@@ -279,13 +307,14 @@ impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Compu
 
 #[cfg(test)]
 mod tests {
+    use super::io::*;
     use super::*;
 
     #[test]
     fn day9_intcode_test1() {
         let program = parse_program("109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99");
 
-        let mut comp = Computer::new();
+        let mut comp = Computer::with_queue_io();
         comp.load(&program);
         comp.run();
 
@@ -300,7 +329,7 @@ mod tests {
     fn day9_intcode_test2() {
         let program = parse_program("1102,34915192,34915192,7,4,7,99,0");
 
-        let mut comp = Computer::new();
+        let mut comp = Computer::with_queue_io();
         comp.load(&program);
         comp.run();
 
@@ -312,11 +341,40 @@ mod tests {
     fn day9_intcode_test3() {
         let program = parse_program("104,1125899906842624,99");
 
-        let mut comp = Computer::new();
+        let mut comp = Computer::with_queue_io();
         comp.load(&program);
         comp.run();
 
         // should output the middle number
         assert_eq!(comp.read_output().unwrap_or(0), 1125899906842624);
+    }
+
+    #[test]
+    fn chained_io() {
+        let program1 = vec![104, 42, 3, 1, 101, 42, 1, 1, 4, 1, 99];
+        let program2 = vec![3, 1, 2, 1, 1, 1, 4, 1, 3, 1, 4, 1, 99];
+
+        let device1 = Rc::new(QueuedIoDevice::new());
+        let device2 = Rc::new(QueuedIoDevice::new());
+
+        let mut comp1 = Computer::new();
+        comp1.load(&program1);
+        let mut comp2 = Computer::new();
+        comp2.load(&program2);
+
+        comp1.attach_input_device(device1.clone()); //  <----+
+        comp1.attach_output_device(device2.clone()); // ---+ |
+                                                     //    | |
+        comp2.attach_input_device(device2.clone()); //  <--+ |
+        comp2.attach_output_device(device1.clone()); // -----+
+
+        loop {
+            comp1.run();
+            if comp2.run() == ExecutionResult::Halted {
+                break;
+            }
+        }
+
+        assert_eq!(device1.read(), Some(42 * 42 + 42));
     }
 }
