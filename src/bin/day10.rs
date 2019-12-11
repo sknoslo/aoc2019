@@ -1,5 +1,4 @@
 use itertools::Itertools;
-use std::collections::HashSet;
 
 fn main() {
     let input = include_str!("../../input/10.txt").trim();
@@ -15,7 +14,7 @@ fn main() {
     println!("part 2: {}", p2);
 }
 
-fn part1(map: &HashSet<(isize, isize)>) -> (usize, (isize, isize)) {
+fn part1(map: &Vec<(isize, isize)>) -> (usize, (isize, isize)) {
     let mut max = 0;
     let mut max_loc = None;
 
@@ -38,33 +37,73 @@ fn part1(map: &HashSet<(isize, isize)>) -> (usize, (isize, isize)) {
     (max, *max_loc.unwrap())
 }
 
-fn part2(map: &HashSet<(isize, isize)>, a: (isize, isize)) -> isize {
-    let mut points = map
-        .into_iter()
-        .filter_map(|b| {
-            let (dx, dy) = get_delta(&a, b);
-            get_minimal_vector(dx, dy).map(|v| (v, *b))
-        })
-        .collect::<Vec<_>>();
+fn part2(map: &Vec<(isize, isize)>, start: (isize, isize)) -> isize {
+    let mut map = map.clone();
 
-    points.sort_by(|(_, a), (_, b)| a.cmp(b));
+    // algo:
+    // 1. sort map by angle and radius relative to start.
+    // 2. "remove" first item. can just leave them in, since there are more visible than 200, will
+    //    never make a second loop around.
+    // 3. skip items that were inline with the one just removed. (will have same step)
+    map.sort_by(|a, b| {
+        let (adx, ady) = get_delta(&start, a);
+        let aangle = get_angle(adx, ady);
+        let arad = get_radius_squared(adx, ady);
+        let (bdx, bdy) = get_delta(&start, b);
+        let bangle = get_angle(bdx, bdy);
+        let brad = get_radius_squared(bdx, bdy);
 
-    points.sort_by(|((ax, ay), _), ((bx, by), _)| {
-        (*ax as f64)
-            .atan2(*ay as f64)
-            .partial_cmp(&(*bx as f64).atan2(*by as f64))
-            .unwrap()
+        if bangle == aangle {
+            arad.cmp(&brad)
+        } else {
+            aangle.cmp(&bangle)
+        }
     });
 
-    let points: Vec<_> = points.iter().unique_by(|(v, _)| v).collect();
+    let mut removed = 0;
+    let mut last_step = (0, 0);
 
-    let twohundredth = points[200].1;
+    for &other in map.iter() {
+        if other == start {
+            continue;
+        }
 
-    twohundredth.0 * 100 + twohundredth.1
+        let (dx, dy) = get_delta(&start, &other);
+        let step = get_minimal_vector(dx, dy).unwrap();
+
+        if step == last_step {
+            continue;
+        }
+
+        removed += 1;
+
+        if removed == 200 {
+            return other.0 * 100 + other.1;
+        }
+        last_step = step;
+    }
+
+    0
 }
 
 fn get_delta(a: &(isize, isize), b: &(isize, isize)) -> (isize, isize) {
     (b.0 - a.0, b.1 - a.1)
+}
+
+fn get_radius_squared(x: isize, y: isize) -> isize {
+    x * x + y * y
+}
+
+// likely to only have enough precision for small vectors, should work for comparison purposes...
+// gets the radians from [0, 2PI] * 10000
+fn get_angle(x: isize, y: isize) -> isize {
+    use std::f64::consts::PI;
+
+    let angle = (y as f64).atan2(x as f64) + PI / 2.0;
+
+    let angle = if angle < 0.0 { 2.0 * PI + angle } else { angle };
+
+    (angle * 10000.0) as isize
 }
 
 fn get_minimal_vector(dx: isize, dy: isize) -> Option<(isize, isize)> {
@@ -85,7 +124,7 @@ fn gcd(a: isize, b: isize) -> isize {
     }
 }
 
-fn parse_input(input: &str) -> HashSet<(isize, isize)> {
+fn parse_input(input: &str) -> Vec<(isize, isize)> {
     input
         .lines()
         .enumerate()
@@ -214,6 +253,7 @@ mod tests {
 
         let (_, location) = part1(&input);
 
+        assert_eq!(location, (11, 13));
         assert_eq!(part2(&input, location), 802);
     }
 }
