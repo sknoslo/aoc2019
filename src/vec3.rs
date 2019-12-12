@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Vec3 {
     pub x: isize,
     pub y: isize,
@@ -14,9 +14,5 @@ impl Vec3 {
         self.x += other.x;
         self.y += other.y;
         self.z += other.z;
-    }
-
-    pub fn mag(&self) -> isize {
-        self.x.abs() + self.y.abs() + self.z.abs()
     }
 }

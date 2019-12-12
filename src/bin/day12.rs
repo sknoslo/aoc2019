@@ -5,19 +5,49 @@ use std::str::FromStr;
 fn main() {
     let planets = parse_input(include_str!("../../input/12.txt").trim());
 
-    let p1 = part1(&mut planets.clone());
+    let p1 = part1(&mut planets.clone(), 1000);
 
     println!("part 1: {}", p1);
 
-    println!("part 2: {}", "incomplete");
+    let p2 = part2(&mut planets.clone());
+
+    println!("part 2: {}", p2);
 }
 
-fn part1(mut planets: &mut Vec<Planet>) -> isize {
-    for _ in 0..1000 {
+fn part1(mut planets: &mut Vec<Planet>, steps: usize) -> isize {
+    for _ in 1..=steps {
         simulate(&mut planets);
     }
 
-    planets.iter().map(|p| p.pos.mag() + p.vel.mag()).sum()
+    planets
+        .iter()
+        .map(|p| energy(&p.pos) * energy(&p.vel))
+        .sum()
+}
+
+fn part2(mut planets: &mut Vec<Planet>) -> isize {
+    // let mut seen = HashSet::new();
+    let mut steps = 0;
+    let mut last = 0;
+
+    for _ in 0..100 {
+        steps += 1;
+        simulate(&mut planets);
+
+        let sum: isize = planets
+            .iter()
+            .map(|p| energy(&p.pos) * energy(&p.vel))
+            .sum();
+
+        println!("{} => diff: {}", sum, sum - last);
+        last = sum;
+    }
+
+    steps
+}
+
+fn energy(v: &Vec3) -> isize {
+    v.x.abs() + v.y.abs() + v.z.abs()
 }
 
 fn parse_input(input: &str) -> Vec<Planet> {
@@ -33,9 +63,9 @@ fn simulate(planets: &mut Vec<Planet>) {
                 continue;
             }
 
-            acc[i].x = get_change(a.pos.x, b.pos.x);
-            acc[i].y = get_change(a.pos.y, b.pos.y);
-            acc[i].z = get_change(a.pos.z, b.pos.z);
+            acc[i].x += get_change(a.pos.x, b.pos.x);
+            acc[i].y += get_change(a.pos.y, b.pos.y);
+            acc[i].z += get_change(a.pos.z, b.pos.z);
         }
     }
 
@@ -47,16 +77,14 @@ fn simulate(planets: &mut Vec<Planet>) {
 }
 
 fn get_change(a: isize, b: isize) -> isize {
-    if a < b {
-        -1
-    } else if b > a {
-        1
-    } else {
+    if a == b {
         0
+    } else {
+        (b - a) / (b - a).abs()
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 struct Planet {
     pos: Vec3,
     vel: Vec3,
@@ -91,5 +119,18 @@ mod tests {
         let planet: Planet = "<x=23, y=-42, z=100>".parse().unwrap();
 
         assert_eq!(planet.pos, Vec3::new(23, -42, 100));
+    }
+
+    #[test]
+    fn part1_test() {
+        let mut planets = parse_input(
+            "\
+<x=-8, y=-10, z=0>
+<x=5, y=5, z=10>
+<x=2, y=-7, z=3>
+<x=9, y=-8, z=-3>",
+        );
+
+        assert_eq!(part1(&mut planets, 100), 1940);
     }
 }
