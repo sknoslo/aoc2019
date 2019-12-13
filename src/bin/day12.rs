@@ -1,4 +1,5 @@
 use aoc2019::vec3::Vec3;
+use num::Integer;
 use regex::Regex;
 use std::str::FromStr;
 
@@ -26,24 +27,40 @@ fn part1(mut planets: &mut Vec<Planet>, steps: usize) -> isize {
 }
 
 fn part2(mut planets: &mut Vec<Planet>) -> isize {
-    // let mut seen = HashSet::new();
+    // observations:
+    // * the sum of the axis values of each planet is stable.
+    // * the system is always fixed around a single point.
+    // * if the whole system will repeat, each axis must repeat, probably more frequently than the
+    //   whole system? ding, ding! the least common multiple would be the answer?
     let mut steps = 0;
-    let mut last = 0;
 
-    for _ in 0..100 {
-        steps += 1;
+    let start_x = get_xs(&planets);
+    let start_y = get_ys(&planets);
+    let start_z = get_zs(&planets);
+
+    // track the "period" between repeating axis values
+    let mut per_x = 0;
+    let mut per_y = 0;
+    let mut per_z = 0;
+
+    while per_x == 0 || per_y == 0 || per_z == 0 {
         simulate(&mut planets);
+        steps += 1;
 
-        let sum: isize = planets
-            .iter()
-            .map(|p| energy(&p.pos) * energy(&p.vel))
-            .sum();
+        if per_x == 0 && start_x == get_xs(&planets) {
+            per_x = steps;
+        }
 
-        println!("{} => diff: {}", sum, sum - last);
-        last = sum;
+        if per_y == 0 && start_y == get_ys(&planets) {
+            per_y = steps;
+        }
+
+        if per_z == 0 && start_z == get_zs(&planets) {
+            per_z = steps;
+        }
     }
 
-    steps
+    per_x.lcm(&per_y).lcm(&per_z)
 }
 
 fn energy(v: &Vec3) -> isize {
@@ -70,9 +87,12 @@ fn simulate(planets: &mut Vec<Planet>) {
     }
 
     for (i, a) in acc.iter().enumerate() {
-        planets[i].vel.add(&a);
-        let vel = planets[i].vel;
-        planets[i].pos.add(&vel);
+        let vel = planets[i].vel.add(&a);
+        let pos = planets[i].pos.add(&vel);
+
+        planets[i].vel = vel;
+
+        planets[i].pos = pos;
     }
 }
 
@@ -82,6 +102,46 @@ fn get_change(a: isize, b: isize) -> isize {
     } else {
         (b - a) / (b - a).abs()
     }
+}
+
+// TODO: gotta be a better way to extract this information...
+fn get_xs(planets: &Vec<Planet>) -> (isize, isize, isize, isize, isize, isize, isize, isize) {
+    (
+        planets[0].pos.x,
+        planets[1].pos.x,
+        planets[2].pos.x,
+        planets[3].pos.x,
+        planets[0].vel.x,
+        planets[1].vel.x,
+        planets[2].vel.x,
+        planets[3].vel.x,
+    )
+}
+
+fn get_ys(planets: &Vec<Planet>) -> (isize, isize, isize, isize, isize, isize, isize, isize) {
+    (
+        planets[0].pos.y,
+        planets[1].pos.y,
+        planets[2].pos.y,
+        planets[3].pos.y,
+        planets[0].vel.y,
+        planets[1].vel.y,
+        planets[2].vel.y,
+        planets[3].vel.y,
+    )
+}
+
+fn get_zs(planets: &Vec<Planet>) -> (isize, isize, isize, isize, isize, isize, isize, isize) {
+    (
+        planets[0].pos.z,
+        planets[1].pos.z,
+        planets[2].pos.z,
+        planets[3].pos.z,
+        planets[0].vel.z,
+        planets[1].vel.z,
+        planets[2].vel.z,
+        planets[3].vel.z,
+    )
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -106,7 +166,6 @@ impl FromStr for Planet {
             ),
             vel: Vec3::new(0, 0, 0),
         })
-        // <x={}, y={}, z={}>
     }
 }
 
@@ -132,5 +191,18 @@ mod tests {
         );
 
         assert_eq!(part1(&mut planets, 100), 1940);
+    }
+
+    #[test]
+    fn part2_test() {
+        let mut planets = parse_input(
+            "\
+<x=-8, y=-10, z=0>
+<x=5, y=5, z=10>
+<x=2, y=-7, z=3>
+<x=9, y=-8, z=-3>",
+        );
+
+        assert_eq!(part2(&mut planets), 4686774924);
     }
 }

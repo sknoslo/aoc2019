@@ -10,9 +10,27 @@ impl Vec3 {
         Self { x, y, z }
     }
 
-    pub fn add(&mut self, other: &Self) {
-        self.x += other.x;
-        self.y += other.y;
-        self.z += other.z;
+    pub fn add(&self, other: &Self) -> Self {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
+    }
+
+    pub fn sub(&self, other: &Self) -> Self {
+        Self {
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+        }
+    }
+
+    pub fn div(&self, factor: isize) -> Self {
+        Self {
+            x: self.x / factor,
+            y: self.y / factor,
+            z: self.z / factor,
+        }
     }
 }
