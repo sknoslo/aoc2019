@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -33,8 +34,8 @@ pub struct Computer<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fm
     ip: isize,
     relative_base: isize,
     memory: RAM,
-    input: Option<Rc<T>>,
-    output: Option<Rc<R>>,
+    input: Option<Rc<RefCell<T>>>,
+    output: Option<Rc<RefCell<R>>>,
 }
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -44,40 +45,38 @@ pub enum ExecutionResult {
 }
 
 pub mod io {
-    use std::cell::RefCell;
-
     pub trait IoDevice {
         /**
          * Read a value from an io device
          */
-        fn read(&self) -> Option<isize>;
+        fn read(&mut self) -> Option<isize>;
 
         /**
          * Write a value to an io device
          */
-        fn write(&self, value: isize);
+        fn write(&mut self, value: isize);
     }
 
     #[derive(Debug)]
     pub struct QueuedIoDevice {
-        queue: RefCell<std::collections::VecDeque<isize>>,
+        queue: std::collections::VecDeque<isize>,
     }
 
     impl QueuedIoDevice {
         pub fn new() -> Self {
             QueuedIoDevice {
-                queue: RefCell::new(std::collections::VecDeque::new()),
+                queue: std::collections::VecDeque::new(),
             }
         }
     }
 
     impl IoDevice for QueuedIoDevice {
-        fn read(&self) -> Option<isize> {
-            self.queue.borrow_mut().pop_back()
+        fn read(&mut self) -> Option<isize> {
+            self.queue.pop_back()
         }
 
-        fn write(&self, value: isize) {
-            self.queue.borrow_mut().push_front(value);
+        fn write(&mut self, value: isize) {
+            self.queue.push_front(value);
         }
     }
 }
@@ -102,8 +101,8 @@ impl Computer<io::QueuedIoDevice, io::QueuedIoDevice> {
             ip: 0,
             relative_base: 0,
             memory: RAM::Unloaded,
-            input: Some(Rc::new(io::QueuedIoDevice::new())),
-            output: Some(Rc::new(io::QueuedIoDevice::new())),
+            input: Some(Rc::new(RefCell::new(io::QueuedIoDevice::new()))),
+            output: Some(Rc::new(RefCell::new(io::QueuedIoDevice::new()))),
         }
     }
 }
@@ -120,7 +119,7 @@ impl<T: io::IoDevice + std::fmt::Debug> Computer<T, T> {
 }
 
 impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Computer<T, R> {
-    pub fn new(input: Option<Rc<T>>, output: Option<Rc<R>>) -> Self {
+    pub fn new(input: Option<Rc<RefCell<T>>>, output: Option<Rc<RefCell<R>>>) -> Self {
         Self {
             ip: 0,
             relative_base: 0,
@@ -143,11 +142,11 @@ impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Compu
         self.memory = RAM::Loaded(memory);
     }
 
-    pub fn attach_input_device(&mut self, input_device: Rc<T>) {
+    pub fn attach_input_device(&mut self, input_device: Rc<RefCell<T>>) {
         self.input = Some(input_device);
     }
 
-    pub fn attach_output_device(&mut self, output_device: Rc<R>) {
+    pub fn attach_output_device(&mut self, output_device: Rc<RefCell<R>>) {
         self.output = Some(output_device);
     }
 
@@ -195,7 +194,7 @@ impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Compu
     // directly.
     pub fn send(&self, value: isize) {
         if let Some(ref input) = self.input {
-            input.write(value);
+            input.borrow_mut().write(value);
         }
     }
 
@@ -203,7 +202,7 @@ impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Compu
     // directly.
     pub fn read_output(&self) -> Option<isize> {
         if let Some(ref output) = self.output {
-            output.read()
+            output.borrow_mut().read()
         } else {
             None
         }
@@ -211,7 +210,7 @@ impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Compu
 
     fn read_input(&self) -> Option<isize> {
         if let Some(ref input) = self.input {
-            input.read()
+            input.borrow_mut().read()
         } else {
             None
         }
@@ -219,7 +218,7 @@ impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Compu
 
     fn write_output(&mut self, value: isize) {
         if let Some(ref output) = self.output {
-            output.write(value);
+            output.borrow_mut().write(value);
         }
     }
 
@@ -365,8 +364,8 @@ mod tests {
         let program1 = vec![104, 42, 3, 1, 101, 42, 1, 1, 4, 1, 99];
         let program2 = vec![3, 1, 2, 1, 1, 1, 4, 1, 3, 1, 4, 1, 99];
 
-        let mut comp1 = Computer::new(None, Some(Rc::new(QueuedIoDevice::new())));
-        let mut comp2 = Computer::new(None, Some(Rc::new(QueuedIoDevice::new())));
+        let mut comp1 = Computer::new(None, Some(Rc::new(RefCell::new(QueuedIoDevice::new()))));
+        let mut comp2 = Computer::new(None, Some(Rc::new(RefCell::new(QueuedIoDevice::new()))));
 
         comp1.load(&program1);
         comp2.load(&program2);

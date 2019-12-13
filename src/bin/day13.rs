@@ -11,61 +11,97 @@ fn main() {
 
     println!("part 1: {}", p1);
 
-    println!("part 2: {}", "incomplete");
+    let p2 = part2(&program);
+
+    println!("part 2: {}", p2);
 }
 
 fn part1(program: &Vec<isize>) -> usize {
-    let arcade_screen = Rc::new(ArcadeScreen::new());
-    let input = Rc::new(QueuedIoDevice::new());
+    let cabinet = Rc::new(RefCell::new(Cabinet::new()));
+    let input = Rc::new(RefCell::new(QueuedIoDevice::new()));
 
-    let mut comp = Computer::new(Some(input.clone()), Some(arcade_screen.clone()));
+    let mut comp = Computer::new(Some(input.clone()), Some(cabinet.clone()));
     comp.load(&program);
     comp.run();
 
-    let display = arcade_screen.display.borrow();
+    {
+        let cabinet = cabinet.borrow();
 
-    display.values().filter(|&&t| t == 2).count()
+        cabinet.display.values().filter(|&&t| t == 2).count()
+    }
+}
+
+fn part2(program: &Vec<isize>) -> isize {
+    let cabinet = Rc::new(RefCell::new(Cabinet::new()));
+
+    let mut comp = Computer::new(Some(cabinet.clone()), Some(cabinet.clone()));
+    let mut program = program.clone();
+    program[0] = 2; // insert coins
+
+    comp.load(&program);
+    comp.run();
+
+    {
+        let cabinet = cabinet.borrow();
+
+        cabinet.score
+    }
 }
 
 #[derive(Debug)]
-struct ArcadeScreen {
-    buffer_ptr: RefCell<usize>,
-    buffer: RefCell<Vec<isize>>,
-    display: RefCell<HashMap<(isize, isize), isize>>,
+struct Cabinet {
+    bp: usize,
+    buffer: Vec<isize>,
+    display: HashMap<(isize, isize), isize>,
+    score: isize,
+    // For the bot player to spy on the ball and paddle
+    ballx: isize,
+    paddlex: isize,
 }
 
-impl ArcadeScreen {
+impl Cabinet {
     fn new() -> Self {
         Self {
-            buffer_ptr: RefCell::new(0),
-            buffer: RefCell::new(vec![0; 3]),
-            display: RefCell::new(HashMap::new()),
+            bp: 0,
+            buffer: vec![0; 3],
+            display: HashMap::new(),
+            score: 0,
+            ballx: 0,
+            paddlex: 0,
         }
     }
 }
 
-impl IoDevice for ArcadeScreen {
-    fn write(&self, value: isize) {
-        let mut bp = self.buffer_ptr.borrow_mut();
-        self.buffer.borrow_mut()[*bp] = value;
+impl IoDevice for Cabinet {
+    fn write(&mut self, value: isize) {
+        self.buffer[self.bp] = value;
 
-        *bp += 1;
+        self.bp += 1;
 
-        if *bp == 3 {
-            *bp = 0;
-
-            let buffer = self.buffer.borrow_mut();
-            let mut display = self.display.borrow_mut();
+        if self.bp == 3 {
+            self.bp = 0;
 
             // flush buffer
-            let x = buffer[0];
-            let y = buffer[1];
-            let tileid = buffer[2];
-            display.insert((x, y), tileid);
+            let x = self.buffer[0];
+            let y = self.buffer[1];
+            let tileid = self.buffer[2];
+            if x == -1 && y == 0 {
+                self.score = tileid; // a "tileid" at (-1, 0) is actually the score.
+            } else {
+                self.display.insert((x, y), tileid);
+            }
+
+            if tileid == 3 {
+                self.paddlex = x;
+            } else if tileid == 4 {
+                self.ballx = x;
+            }
         }
     }
 
-    fn read(&self) -> Option<isize> {
-        None
+    fn read(&mut self) -> Option<isize> {
+        let dx = self.ballx - self.paddlex;
+
+        Some(if dx == 0 { 0 } else { dx / dx.abs() })
     }
 }
