@@ -15,11 +15,15 @@ fn main() {
 }
 
 fn part1(reactions: &HashMap<String, Reaction>) -> usize {
+    ore_for_fuel(reactions, 1)
+}
+
+fn ore_for_fuel(reactions: &HashMap<String, Reaction>, fuel: usize) -> usize {
     let mut ore_used = 0;
     let mut to_visit = VecDeque::new();
     let mut left_overs: HashMap<String, usize> = HashMap::new();
 
-    to_visit.push_front(("FUEL".to_string(), 1));
+    to_visit.push_front(("FUEL".to_string(), fuel));
 
     while let Some((chem, needed)) = to_visit.pop_back() {
         let left_over = left_overs.entry(chem.clone()).or_insert(0);
@@ -53,11 +57,20 @@ fn part1(reactions: &HashMap<String, Reaction>) -> usize {
     ore_used
 }
 
-fn part2(_reactions: &HashMap<String, Reaction>) -> usize {
-    // find the percentage of ORE that is "unused" each time 1 FUEL is created.
-    // if it required 3 ORE to make 5 A, and 6 A to make 1 FUEL, 4 out of 10 A go wasted.
-    // so 40% of the 6 ORE are wasted as well. is that enough info to calculate the answer?
-    0
+fn part2(reactions: &HashMap<String, Reaction>) -> usize {
+    let mut guess = 1_000_000_000_000 / 741927; // starting guess based on part 1 answer
+
+    while ore_for_fuel(reactions, guess) < 1_000_000_000_000 {
+        guess += 1_000;
+    }
+
+    guess -= 1_000;
+
+    while ore_for_fuel(reactions, guess) < 1_000_000_000_000 {
+        guess += 1;
+    }
+
+    guess - 1
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -166,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn par1_test2() {
+    fn part1_test2() {
         let input = parse_input(
             "\
 157 ORE => 5 NZVS
@@ -181,5 +194,23 @@ mod tests {
         );
 
         assert_eq!(part1(&input), 13312);
+    }
+
+    #[test]
+    fn part2_test2() {
+        let input = parse_input(
+            "\
+157 ORE => 5 NZVS
+165 ORE => 6 DCFZ
+44 XJWVT, 5 KHKGT, 1 QDVJ, 29 NZVS, 9 GPVTF, 48 HKGWZ => 1 FUEL
+12 HKGWZ, 1 GPVTF, 8 PSHF => 9 QDVJ
+179 ORE => 7 PSHF
+177 ORE => 5 HKGWZ
+7 DCFZ, 7 PSHF => 2 XJWVT
+165 ORE => 2 GPVTF
+3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF => 8 KHKGT",
+        );
+
+        assert_eq!(part2(&input), 82892753);
     }
 }
