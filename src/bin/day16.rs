@@ -19,22 +19,39 @@ fn part1(seq: &Vec<isize>) -> String {
 }
 
 fn part2(seq: &Vec<isize>) -> String {
-    // TODO:
-    // clearly brute force is going to take too long...
-    // given that the input is repeated, the final sequence is probably repeated too. just get the
-    // offset from part 1 and find the message in the repeated output.
-    let seq = seq
-        .iter()
-        .cloned()
-        .cycle()
-        .take(seq.len() * 10_000)
-        .collect();
+    // Observations:
+    // * digit k is a function of digits k-n, so any calculations before k are irrelevant
+    // * if you visualize the phases as a matrix, there is a pattern at the end,
+    //       [-, -, -, a, -]
+    //       [-, -, -, b, c]
+    //       [-, -, -, -, -]
+    //       [-, -, -, -, -] -> b = (a + c) % 10
+    //
+    //       and the last digit is always the same as the initial value. Using this, should be able
+    //       to work backwards to create the sequence?
 
-    get_seq_after_phases(&seq, 100)
+    let offset = seq[0..7].iter().fold(0, |acc, digit| acc * 10 + digit);
+
+    let total_size = seq.len() * 10_000;
+    let end_length = total_size - offset as usize;
+
+    let seq = seq.iter().cloned().rev().cycle().take(end_length);
+
+    let final_seq: Vec<_> = (0..100).fold(seq.to_owned(), |prev_seq| {
+        prev_seq
+            .scan(0, |prev, curr| {
+                *prev = (curr + *prev) % 10;
+                Some(*prev)
+            })
+            .collect()
+    });
+
+    final_seq
         .iter()
-        .map(|digit| std::char::from_digit(*digit as u32, 10).unwrap())
-        .take(8) // get just the first 8 digits
-        .collect::<String>()
+        .rev()
+        .map(|d| std::char::from_digit(*d as u32, 10).unwrap())
+        .take(8)
+        .collect()
 }
 
 fn get_seq_after_phases(seq: &Vec<isize>, phases: usize) -> Vec<isize> {
@@ -121,5 +138,11 @@ mod tests {
         let seq = parse_input("80871224585914546619083218645595");
 
         assert_eq!(part1(&seq), "24176176");
+    }
+
+    #[test]
+    fn part2_test1() {
+        let seq = parse_input("03036732577212944063491565474664");
+        assert_eq!(part2(&seq), "84462026");
     }
 }
