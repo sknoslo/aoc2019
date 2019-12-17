@@ -11,7 +11,20 @@ fn main() {
 }
 
 fn part1(seq: &Vec<isize>) -> String {
-    get_seq_after_phases(seq, 100)
+    (0..100)
+        .fold(seq.to_owned(), |last_seq, _| {
+            (1..=last_seq.len())
+                .map(|digit| {
+                    last_seq
+                        .iter()
+                        .zip(Pattern::new(digit))
+                        .map(|(s, p)| s * p)
+                        .sum::<isize>()
+                        .abs()
+                        % 10
+                })
+                .collect()
+        })
         .iter()
         .map(|digit| std::char::from_digit(*digit as u32, 10).unwrap())
         .take(8) // get just the first 8 digits
@@ -21,6 +34,7 @@ fn part1(seq: &Vec<isize>) -> String {
 fn part2(seq: &Vec<isize>) -> String {
     // Observations:
     // * digit k is a function of digits k-n, so any calculations before k are irrelevant
+    //   * problem space still too large...
     // * if you visualize the phases as a matrix, there is a pattern at the end,
     //       [-, -, -, a, -]
     //       [-, -, -, b, c]
@@ -28,46 +42,30 @@ fn part2(seq: &Vec<isize>) -> String {
     //       [-, -, -, -, -] -> b = (a + c) % 10
     //
     //       and the last digit is always the same as the initial value. Using this, should be able
-    //       to work backwards to create the sequence?
-
+    //       to work backwards to create the sequence? Shoutout to reddit for illuminatig this
+    //       pattern.
     let offset = seq[0..7].iter().fold(0, |acc, digit| acc * 10 + digit);
 
     let total_size = seq.len() * 10_000;
     let end_length = total_size - offset as usize;
 
-    let seq = seq.iter().cloned().rev().cycle().take(end_length);
+    let seq: Vec<_> = seq.iter().cloned().rev().cycle().take(end_length).collect();
 
-    let final_seq: Vec<_> = (0..100).fold(seq.to_owned(), |prev_seq| {
-        prev_seq
-            .scan(0, |prev, curr| {
-                *prev = (curr + *prev) % 10;
-                Some(*prev)
-            })
-            .collect()
-    });
-
-    final_seq
+    (0..100)
+        .fold(seq.to_owned(), |prev_seq, _| {
+            prev_seq
+                .iter()
+                .scan(0, |prev, curr| {
+                    *prev = (curr + *prev) % 10;
+                    Some(*prev)
+                })
+                .collect()
+        })
         .iter()
         .rev()
         .map(|d| std::char::from_digit(*d as u32, 10).unwrap())
         .take(8)
         .collect()
-}
-
-fn get_seq_after_phases(seq: &Vec<isize>, phases: usize) -> Vec<isize> {
-    (0..phases).fold(seq.to_owned(), |last_seq, _| {
-        (1..=last_seq.len())
-            .map(|digit| {
-                last_seq
-                    .iter()
-                    .zip(Pattern::new(digit))
-                    .map(|(s, p)| s * p)
-                    .sum::<isize>()
-                    .abs()
-                    % 10
-            })
-            .collect()
-    })
 }
 
 struct Pattern {
@@ -125,13 +123,6 @@ mod pattern_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn seq_test() {
-        let seq = parse_input("12345678");
-
-        assert_eq!(get_seq_after_phases(&seq, 4), vec![0, 1, 0, 2, 9, 4, 9, 8]);
-    }
 
     #[test]
     fn part1_test1() {
