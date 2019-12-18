@@ -12,16 +12,14 @@ fn part1(maze: &Maze) -> usize {
     println!("{}", maze);
 
     // IDEA:
-    // * use BFS (or A* if BFS is too slow?) to find the best path from each key to each other key
-    //   * store distances in a map.
-    // * starting at ENTRANCE choose the closest key.
-    // * continue choosing the closest key, until they are all gone.
+    // * ... i don't have one... previous idea was based on false understanding...
 
     println!("ENTRANCE: {:?}", maze.get_pos_of(Tile::Entry));
 
     let num_keys = maze.get_keys().len();
-    println!("# KEYS:   {}", maze.get_keys().len());
-    println!("# KEYS^2: {}", num_keys * num_keys);
+    let num_doors = maze.get_doors().len();
+    println!("# KEYS:   {}", num_keys);
+    println!("# DOORS:  {}", num_doors);
 
     let num_empty = maze.tiles.iter().filter(|&&t| t == Tile::Empty).count();
     println!("EXPLORE:  {}", num_empty);
@@ -39,7 +37,9 @@ fn parse_maze(input: &str) -> Maze {
             '.' => Tile::Empty,
             '#' => Tile::Wall,
             '@' => Tile::Entry,
-            c => Tile::Key(c),
+            'a'..='z' => Tile::Key(c),
+            'A'..='Z' => Tile::Door(c),
+            _ => unreachable!(),
         })
         .collect();
 
@@ -58,6 +58,7 @@ enum Tile {
     Wall,
     Entry,
     Key(char),
+    Door(char),
 }
 
 #[derive(Debug)]
@@ -85,6 +86,14 @@ impl Maze {
             .filter(|t| if let Tile::Key(_) = t { true } else { false })
             .collect()
     }
+
+    fn get_doors(&self) -> Vec<Tile> {
+        self.tiles
+            .iter()
+            .cloned()
+            .filter(|t| if let Tile::Door(_) = t { true } else { false })
+            .collect()
+    }
 }
 
 impl fmt::Display for Maze {
@@ -101,11 +110,72 @@ impl fmt::Display for Maze {
                     Tile::Empty => '.',
                     Tile::Wall => '#',
                     Tile::Entry => '@',
-                    Tile::Key(c) => *c,
+                    Tile::Key(c) | Tile::Door(c) => *c,
                 }
             )?;
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn part1_test1() {
+        let maze = parse_maze(
+            "\
+########################
+#f.D.E.e.C.b.A.@.a.B.c.#
+######################.#
+#d.....................#
+########################",
+        );
+
+        assert_eq!(part1(&maze), 86);
+    }
+
+    #[test]
+    fn part1_test2() {
+        let maze = parse_maze(
+            "\
+########################
+#f.D.E.e.C.b.A.@.a.B.c.#
+######################.#
+#d.....................#
+########################",
+        );
+
+        assert_eq!(part1(&maze), 86);
+    }
+
+    #[test]
+    fn part1_test3() {
+        let maze = parse_maze(
+            "\
+########################
+#f.D.E.e.C.b.A.@.a.B.c.#
+######################.#
+#d.....................#
+########################",
+        );
+
+        assert_eq!(part1(&maze), 86);
+    }
+
+    #[test]
+    fn part1_test4() {
+        let maze = parse_maze(
+            "\
+########################
+#f.D.E.e.C.b.A.@.a.B.c.#
+######################.#
+#d.....................#
+########################",
+        );
+
+        assert_eq!(part1(&maze), 86);
     }
 }
