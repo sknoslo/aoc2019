@@ -2,10 +2,12 @@ use std::collections::{HashSet, VecDeque};
 use std::fmt;
 
 fn main() {
-    let maze = parse_maze(include_str!("../../input/18.txt").trim());
+    let mut maze = parse_maze(include_str!("../../input/18.txt").trim());
 
-    let p1 = part1(&maze);
-    println!("part 1: {}", p1);
+    // let p1 = part1(&maze);
+    // println!("part 1: {}", p1);
+
+    maze.split_quadrants();
 
     let p2 = part2(&maze);
     println!("part 2: {}", p2);
@@ -71,7 +73,112 @@ fn part1(maze: &Maze) -> usize {
     0
 }
 
-fn part2(_maze: &Maze) -> usize {
+fn part2(maze: &Maze) -> usize {
+    println!("{}", maze);
+
+    let mut to_visit = VecDeque::new();
+    let mut visited = HashSet::new();
+
+    let total_keys = maze.get_keys().len();
+
+    let starts = maze.get_quad_entry_positions();
+
+    to_visit.push_front((starts, vec![], 0));
+
+    while let Some(((a, b, c, d), mut keys, steps)) = to_visit.pop_back() {
+        let tile = maze.get_tile(a);
+
+        if tile == Tile::Wall {
+            continue;
+        } else if let Tile::Door(c) = tile {
+            if !keys.contains(&c.to_ascii_lowercase()) {
+                // can't get passed this door yet
+                continue;
+            }
+        }
+
+        if let Tile::Key(c) = tile {
+            // if we don't already have this key, put in on the keychain!
+            if !keys.contains(&c) {
+                keys.push(c);
+                if keys.len() == total_keys {
+                    return steps;
+                }
+
+                keys.sort(); // sort keys to better avoid duplicates
+            }
+        }
+
+        let steps = steps + 1;
+
+        plan_quad_visit(
+            (a - maze.w, b, c, d),
+            &keys,
+            steps,
+            &mut visited,
+            &mut to_visit,
+        );
+        plan_quad_visit(
+            (a + maze.w, b, c, d),
+            &keys,
+            steps,
+            &mut visited,
+            &mut to_visit,
+        );
+        plan_quad_visit((a - 1, b, c, d), &keys, steps, &mut visited, &mut to_visit);
+        plan_quad_visit((a + 1, b, c, d), &keys, steps, &mut visited, &mut to_visit);
+
+        plan_quad_visit(
+            (b - maze.w, a, c, d),
+            &keys,
+            steps,
+            &mut visited,
+            &mut to_visit,
+        );
+        plan_quad_visit(
+            (b + maze.w, a, c, d),
+            &keys,
+            steps,
+            &mut visited,
+            &mut to_visit,
+        );
+        plan_quad_visit((b - 1, a, c, d), &keys, steps, &mut visited, &mut to_visit);
+        plan_quad_visit((b + 1, a, c, d), &keys, steps, &mut visited, &mut to_visit);
+
+        plan_quad_visit(
+            (c - maze.w, a, b, d),
+            &keys,
+            steps,
+            &mut visited,
+            &mut to_visit,
+        );
+        plan_quad_visit(
+            (c + maze.w, a, b, d),
+            &keys,
+            steps,
+            &mut visited,
+            &mut to_visit,
+        );
+        plan_quad_visit((c - 1, a, b, d), &keys, steps, &mut visited, &mut to_visit);
+        plan_quad_visit((c + 1, a, b, d), &keys, steps, &mut visited, &mut to_visit);
+
+        plan_quad_visit(
+            (d - maze.w, a, b, c),
+            &keys,
+            steps,
+            &mut visited,
+            &mut to_visit,
+        );
+        plan_quad_visit(
+            (d + maze.w, a, b, c),
+            &keys,
+            steps,
+            &mut visited,
+            &mut to_visit,
+        );
+        plan_quad_visit((d - 1, a, b, c), &keys, steps, &mut visited, &mut to_visit);
+        plan_quad_visit((d + 1, a, b, c), &keys, steps, &mut visited, &mut to_visit);
+    }
     0
 }
 
@@ -87,12 +194,24 @@ fn plan_visit(
     }
 }
 
+fn plan_quad_visit(
+    robots: (usize, usize, usize, usize),
+    keys: &Vec<char>,
+    steps: usize,
+    visited: &mut HashSet<((usize, usize, usize, usize), Vec<char>)>,
+    to_visit: &mut VecDeque<((usize, usize, usize, usize), Vec<char>, usize)>,
+) {
+    if visited.insert((robots, keys.clone())) {
+        to_visit.push_front((robots, keys.clone(), steps));
+    }
+}
+
 fn parse_maze(input: &str) -> Maze {
     let height = input.lines().count();
 
     let tiles: Vec<_> = input
         .chars()
-        .filter(|&c| c != '\n')
+        .filter(|&c| !c.is_whitespace())
         .map(|c| match c {
             '.' => Tile::Empty,
             '#' => Tile::Wall,
@@ -152,6 +271,26 @@ impl Maze {
             .cloned()
             .filter(|t| if let Tile::Door(_) = t { true } else { false })
             .collect()
+    }
+
+    fn get_quad_entry_positions(&self) -> (usize, usize, usize, usize) {
+        let first = self.get_pos_of(Tile::Entry);
+
+        (first, first + 2, first + 2 * self.w, first + 2 * self.w + 2)
+    }
+
+    fn split_quadrants(&mut self) {
+        let i = self.get_pos_of(Tile::Entry);
+
+        self.tiles[i] = Tile::Wall;
+        self.tiles[i - self.w] = Tile::Wall;
+        self.tiles[i + self.w] = Tile::Wall;
+        self.tiles[i - 1] = Tile::Wall;
+        self.tiles[i + 1] = Tile::Wall;
+        self.tiles[i - self.w - 1] = Tile::Entry;
+        self.tiles[i - self.w + 1] = Tile::Entry;
+        self.tiles[i + self.w - 1] = Tile::Entry;
+        self.tiles[i + self.w + 1] = Tile::Entry;
     }
 }
 
