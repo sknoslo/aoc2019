@@ -1,3 +1,4 @@
+use std::collections::{HashSet, VecDeque};
 use std::fmt;
 
 fn main() {
@@ -12,17 +13,66 @@ fn part1(maze: &Maze) -> usize {
     println!("{}", maze);
 
     // IDEA:
-    // * ... i don't have one... previous idea was based on false understanding...
+    // * do a BFS, where each node on the queue is the postion + the set of keys that have been
+    //   found + the number of steps taken to get here.
+    // * when all keys have been found, you are at the optimal node.
+    //
+    // * Okay, this works but uses about 5-6 GB of RAM. Gotta be some optimization oportunity...
+    //   * Djikstras?
+    //   * Build a proper graph out of the maze?
 
-    println!("ENTRANCE: {:?}", maze.get_pos_of(Tile::Entry));
+    let mut to_visit = VecDeque::new();
+    let mut visited = HashSet::new();
 
-    let num_keys = maze.get_keys().len();
-    let num_doors = maze.get_doors().len();
-    println!("# KEYS:   {}", num_keys);
-    println!("# DOORS:  {}", num_doors);
+    let total_keys = maze.get_keys().len();
 
-    let num_empty = maze.tiles.iter().filter(|&&t| t == Tile::Empty).count();
-    println!("EXPLORE:  {}", num_empty);
+    let start = maze.get_pos_of(Tile::Entry);
+
+    to_visit.push_front((start, vec![], 0));
+
+    while let Some((i, mut keys, steps)) = to_visit.pop_back() {
+        let tile = maze.get_tile(i);
+
+        if tile == Tile::Wall {
+            continue;
+        } else if let Tile::Door(c) = tile {
+            if !keys.contains(&c.to_ascii_lowercase()) {
+                // can't get passed this door yet
+                continue;
+            }
+        }
+
+        if let Tile::Key(c) = tile {
+            // if we don't already have this key, put in on the keychain!
+            if !keys.contains(&c) {
+                keys.push(c);
+                if keys.len() == total_keys {
+                    return steps;
+                }
+
+                keys.sort(); // sort keys to better avoid duplicates
+            }
+        }
+
+        let up = i - maze.w;
+        let down = i + maze.w;
+        let left = i - 1;
+        let right = i + 1;
+        let steps = steps + 1;
+
+        if visited.insert((up, keys.clone())) {
+            to_visit.push_front((up, keys.clone(), steps));
+        }
+        if visited.insert((down, keys.clone())) {
+            to_visit.push_front((down, keys.clone(), steps));
+        }
+        if visited.insert((left, keys.clone())) {
+            to_visit.push_front((left, keys.clone(), steps));
+        }
+        if visited.insert((right, keys.clone())) {
+            to_visit.push_front((right, keys.clone(), steps));
+        }
+    }
 
     0
 }
@@ -69,14 +119,12 @@ struct Maze {
 }
 
 impl Maze {
-    fn get(&self, x: usize, y: usize) -> Tile {
-        self.tiles[y * self.w + x]
+    fn get_tile(&self, i: usize) -> Tile {
+        self.tiles[i]
     }
 
-    fn get_pos_of(&self, target: Tile) -> (usize, usize) {
-        let i = self.tiles.iter().position(|&tile| tile == target).unwrap();
-
-        (i % self.w, i / self.w)
+    fn get_pos_of(&self, target: Tile) -> usize {
+        self.tiles.iter().position(|&tile| tile == target).unwrap()
     }
 
     fn get_keys(&self) -> Vec<Tile> {
@@ -87,6 +135,7 @@ impl Maze {
             .collect()
     }
 
+    #[allow(dead_code)]
     fn get_doors(&self) -> Vec<Tile> {
         self.tiles
             .iter()
