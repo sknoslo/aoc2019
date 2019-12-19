@@ -6,7 +6,9 @@ fn main() {
 
     let p1 = part1(&maze);
     println!("part 1: {}", p1);
-    println!("part 2: {}", "incomplete");
+
+    let p2 = part2(&maze);
+    println!("part 2: {}", p2);
 }
 
 fn part1(maze: &Maze) -> usize {
@@ -60,21 +62,29 @@ fn part1(maze: &Maze) -> usize {
         let right = i + 1;
         let steps = steps + 1;
 
-        if visited.insert((up, keys.clone())) {
-            to_visit.push_front((up, keys.clone(), steps));
-        }
-        if visited.insert((down, keys.clone())) {
-            to_visit.push_front((down, keys.clone(), steps));
-        }
-        if visited.insert((left, keys.clone())) {
-            to_visit.push_front((left, keys.clone(), steps));
-        }
-        if visited.insert((right, keys.clone())) {
-            to_visit.push_front((right, keys.clone(), steps));
-        }
+        plan_visit(up, &keys, steps, &mut visited, &mut to_visit);
+        plan_visit(down, &keys, steps, &mut visited, &mut to_visit);
+        plan_visit(left, &keys, steps, &mut visited, &mut to_visit);
+        plan_visit(right, &keys, steps, &mut visited, &mut to_visit);
     }
 
     0
+}
+
+fn part2(_maze: &Maze) -> usize {
+    0
+}
+
+fn plan_visit(
+    i: usize,
+    keys: &Vec<char>,
+    steps: usize,
+    visited: &mut HashSet<(usize, Vec<char>)>,
+    to_visit: &mut VecDeque<(usize, Vec<char>, usize)>,
+) {
+    if visited.insert((i, keys.clone())) {
+        to_visit.push_front((i, keys.clone(), steps));
+    }
 }
 
 fn parse_maze(input: &str) -> Maze {
@@ -231,5 +241,23 @@ mod tests {
         );
 
         assert_eq!(part1(&maze), 81);
+    }
+
+    #[test]
+    fn part2_test4() {
+        let maze = parse_maze(
+            "\
+#############
+#g#f.D#..h#l#
+#F###e#E###.#
+#dCba@#@BcIJ#
+#############
+#nK.L@#@G...#
+#M###N#H###.#
+#o#m..#i#jk.#
+#############",
+        );
+
+        assert_eq!(part2(&maze), 72);
     }
 }
