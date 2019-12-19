@@ -139,6 +139,7 @@ impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Compu
         memory.extend(vec![0; program.len() * 9].into_iter());
 
         self.ip = 0;
+        self.relative_base = 0;
         self.memory = RAM::Loaded(memory);
     }
 
