@@ -34,39 +34,62 @@ fn part1(program: &Vec<isize>) -> usize {
     affected
 }
 
-fn part2(program: &Vec<isize>) -> usize {
+fn part2(program: &Vec<isize>) -> isize {
     let mut comp = Computer::with_queue_io();
 
-    let mut map = Vec::with_capacity(100 * 100);
+    // algo:
+    // * init
+    //   * starting at x = 99 look for the top-right corner of a box (can't be less than 99 so
+    //     start there).
+    // * loop
+    //   * go down 1 (y+1) and search right until the end of the beam.
+    //   * check (x-99, y+99) if there is a beam, we have our answer.
 
-    for y in 0..100 {
-        for x in 0..100 {
+    let mut top_right = (99, 0);
+
+    loop {
+        comp.load(&program);
+
+        comp.send(top_right.0);
+        comp.send(top_right.1);
+
+        comp.run();
+
+        if comp.read_output().expect("no output!") == 1 {
+            break;
+        }
+
+        top_right.1 += 1;
+    }
+
+    loop {
+        loop {
+            top_right.0 += 1;
+
             comp.load(&program);
 
-            comp.send(x);
-            comp.send(y);
+            comp.send(top_right.0);
+            comp.send(top_right.1);
 
             comp.run();
-            let out = comp.read_output().expect("no output!");
-
-            map.push(out);
-        }
-    }
-
-    let mut line = vec!['.'; 100];
-
-    for y in 0..100 {
-        for x in 0..100 {
-            line[x] = match map[y * 100 + x] {
-                1 => '#',
-                _ => '.',
-            };
+            if comp.read_output().expect("no output!") == 0 {
+                top_right.0 -= 1;
+                break;
+            }
         }
 
-        println!("{}", line.iter().collect::<String>());
+        comp.load(&program);
+
+        let bottom_left = (top_right.0 - 99, top_right.1 + 99);
+
+        comp.send(bottom_left.0);
+        comp.send(bottom_left.1);
+
+        comp.run();
+        if comp.read_output().expect("no output!") == 1 {
+            return 10_000 * bottom_left.0 + top_right.1;
+        }
+
+        top_right.1 += 1;
     }
-
-    println!("no go do math");
-
-    0
 }
