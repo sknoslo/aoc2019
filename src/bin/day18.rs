@@ -1,11 +1,13 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 
 fn main() {
     let mut maze = parse_maze(include_str!("../../input/18.txt").trim());
 
-    // let p1 = part1(&maze);
-    // println!("part 1: {}", p1);
+    let p1 = part1(&mut maze);
+    println!("part 1: {}", p1);
+
+    let mut maze = parse_maze(include_str!("../../input/18.txt").trim());
 
     maze.split_quadrants();
 
@@ -13,222 +15,22 @@ fn main() {
     println!("part 2: {}", p2);
 }
 
-fn part1(maze: &Maze) -> usize {
-    println!("{}", maze);
-
-    // IDEA:
-    // * do a BFS, where each node on the queue is the postion + the set of keys that have been
-    //   found + the number of steps taken to get here.
-    // * when all keys have been found, you are at the optimal node.
-    //
-    // * Okay, this works but uses about 5-6 GB of RAM. Gotta be some optimization oportunity...
-    //   * Djikstras?
-    //   * Build a proper graph out of the maze?
-
-    let mut to_visit = VecDeque::new();
-    let mut visited = HashSet::new();
-
-    let total_keys = maze.get_keys().len();
-
+fn part1(maze: &mut Maze) -> usize {
     let start = maze.get_pos_of(Tile::Entry);
-
-    to_visit.push_front((start, vec![], 0));
-
-    while let Some((i, mut keys, steps)) = to_visit.pop_back() {
-        let tile = maze.get_tile(i);
-
-        if tile == Tile::Wall {
-            continue;
-        } else if let Tile::Door(c) = tile {
-            if !keys.contains(&c.to_ascii_lowercase()) {
-                // can't get passed this door yet
-                continue;
-            }
-        }
-
-        if let Tile::Key(c) = tile {
-            // if we don't already have this key, put in on the keychain!
-            if !keys.contains(&c) {
-                keys.push(c);
-                if keys.len() == total_keys {
-                    return steps;
-                }
-
-                keys.sort(); // sort keys to better avoid duplicates
-            }
-        }
-
-        let up = i - maze.w;
-        let down = i + maze.w;
-        let left = i - 1;
-        let right = i + 1;
-        let steps = steps + 1;
-
-        plan_visit(up, &keys, steps, &mut visited, &mut to_visit);
-        plan_visit(down, &keys, steps, &mut visited, &mut to_visit);
-        plan_visit(left, &keys, steps, &mut visited, &mut to_visit);
-        plan_visit(right, &keys, steps, &mut visited, &mut to_visit);
-    }
-
-    0
-}
-
-fn part2(maze: &Maze) -> usize {
-    println!("{}", maze);
-
-    let mut to_visit = VecDeque::new();
-    let mut visited = HashSet::new();
-
-    let total_keys = maze.get_keys().len();
-
-    let starts = maze.get_quad_entry_positions();
-
-    to_visit.push_front((starts, vec![], 0));
-
-    while let Some(((a, b, c, d), mut keys, steps)) = to_visit.pop_back() {
-        let tile = maze.get_tile(a);
-
-        if tile == Tile::Wall {
-            continue;
-        } else if let Tile::Door(c) = tile {
-            if !keys.contains(&c.to_ascii_lowercase()) {
-                // can't get passed this door yet
-                continue;
-            }
-        }
-
-        if let Tile::Key(c) = tile {
-            // if we don't already have this key, put in on the keychain!
-            if !keys.contains(&c) {
-                keys.push(c);
-                if keys.len() == total_keys {
-                    return steps;
-                }
-
-                keys.sort(); // sort keys to better avoid duplicates
-            }
-        }
-
-        let steps = steps + 1;
-
-        plan_quad_visit(
-            (a - maze.w, b, c, d),
-            &keys,
-            steps,
-            &mut visited,
-            &mut to_visit,
-        );
-        plan_quad_visit(
-            (a + maze.w, b, c, d),
-            &keys,
-            steps,
-            &mut visited,
-            &mut to_visit,
-        );
-        plan_quad_visit((a - 1, b, c, d), &keys, steps, &mut visited, &mut to_visit);
-        plan_quad_visit((a + 1, b, c, d), &keys, steps, &mut visited, &mut to_visit);
-
-        plan_quad_visit(
-            (b - maze.w, a, c, d),
-            &keys,
-            steps,
-            &mut visited,
-            &mut to_visit,
-        );
-        plan_quad_visit(
-            (b + maze.w, a, c, d),
-            &keys,
-            steps,
-            &mut visited,
-            &mut to_visit,
-        );
-        plan_quad_visit((b - 1, a, c, d), &keys, steps, &mut visited, &mut to_visit);
-        plan_quad_visit((b + 1, a, c, d), &keys, steps, &mut visited, &mut to_visit);
-
-        plan_quad_visit(
-            (c - maze.w, a, b, d),
-            &keys,
-            steps,
-            &mut visited,
-            &mut to_visit,
-        );
-        plan_quad_visit(
-            (c + maze.w, a, b, d),
-            &keys,
-            steps,
-            &mut visited,
-            &mut to_visit,
-        );
-        plan_quad_visit((c - 1, a, b, d), &keys, steps, &mut visited, &mut to_visit);
-        plan_quad_visit((c + 1, a, b, d), &keys, steps, &mut visited, &mut to_visit);
-
-        plan_quad_visit(
-            (d - maze.w, a, b, c),
-            &keys,
-            steps,
-            &mut visited,
-            &mut to_visit,
-        );
-        plan_quad_visit(
-            (d + maze.w, a, b, c),
-            &keys,
-            steps,
-            &mut visited,
-            &mut to_visit,
-        );
-        plan_quad_visit((d - 1, a, b, c), &keys, steps, &mut visited, &mut to_visit);
-        plan_quad_visit((d + 1, a, b, c), &keys, steps, &mut visited, &mut to_visit);
-    }
-    0
-}
-
-fn plan_visit(
-    i: usize,
-    keys: &Vec<char>,
-    steps: usize,
-    visited: &mut HashSet<(usize, Vec<char>)>,
-    to_visit: &mut VecDeque<(usize, Vec<char>, usize)>,
-) {
-    if visited.insert((i, keys.clone())) {
-        to_visit.push_front((i, keys.clone(), steps));
-    }
-}
-
-fn plan_quad_visit(
-    robots: (usize, usize, usize, usize),
-    keys: &Vec<char>,
-    steps: usize,
-    visited: &mut HashSet<((usize, usize, usize, usize), Vec<char>)>,
-    to_visit: &mut VecDeque<((usize, usize, usize, usize), Vec<char>, usize)>,
-) {
-    if visited.insert((robots, keys.clone())) {
-        to_visit.push_front((robots, keys.clone(), steps));
-    }
-}
-
-fn parse_maze(input: &str) -> Maze {
-    let height = input.lines().count();
-
-    let tiles: Vec<_> = input
-        .chars()
-        .filter(|&c| !c.is_whitespace())
-        .map(|c| match c {
-            '.' => Tile::Empty,
-            '#' => Tile::Wall,
-            '@' => Tile::Entry,
-            'a'..='z' => Tile::Key(c),
-            'A'..='Z' => Tile::Door(c),
-            _ => unreachable!(),
+    let keys = maze
+        .get_keys()
+        .into_iter()
+        .map(|key| match key {
+            Tile::Key(k) => k,
+            _ => panic!("what!"),
         })
         .collect();
 
-    let width = tiles.len() / height;
+    maze.steps_to_collect(start, keys)
+}
 
-    Maze {
-        tiles,
-        w: width,
-        h: height,
-    }
+fn part2(_maze: &Maze) -> usize {
+    0
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -245,6 +47,8 @@ struct Maze {
     tiles: Vec<Tile>,
     w: usize,
     h: usize,
+    cache: HashMap<(usize, Vec<char>), usize>,
+    other_cache: HashMap<(usize, usize, Vec<char>), usize>,
 }
 
 impl Maze {
@@ -261,15 +65,6 @@ impl Maze {
             .iter()
             .cloned()
             .filter(|t| if let Tile::Key(_) = t { true } else { false })
-            .collect()
-    }
-
-    #[allow(dead_code)]
-    fn get_doors(&self) -> Vec<Tile> {
-        self.tiles
-            .iter()
-            .cloned()
-            .filter(|t| if let Tile::Door(_) = t { true } else { false })
             .collect()
     }
 
@@ -291,6 +86,83 @@ impl Maze {
         self.tiles[i - self.w + 1] = Tile::Entry;
         self.tiles[i + self.w - 1] = Tile::Entry;
         self.tiles[i + self.w + 1] = Tile::Entry;
+    }
+
+    fn steps_to_collect(&mut self, a: usize, mut keys: Vec<char>) -> usize {
+        if keys.len() == 0 {
+            return 0;
+        }
+
+        keys.sort();
+
+        if let Some(dist) = self.cache.get(&(a, keys.clone())) {
+            return *dist;
+        }
+
+        let mut result = std::usize::MAX;
+
+        for key in keys.iter() {
+            let key_pos = self.get_pos_of(Tile::Key(*key));
+
+            let cached_dist = self.other_cache.get(&(a, key_pos, keys.clone()));
+
+            if let Some(d) = cached_dist {
+                println!("cache hit");
+                let dist = *d
+                    + self.steps_to_collect(
+                        key_pos,
+                        keys.iter().cloned().filter(|k| k != key).collect(),
+                    );
+
+                result = std::cmp::min(result, dist);
+            } else if let Some(mut dist) = self.steps_between(a, key_pos, &keys) {
+                self.other_cache.insert((a, key_pos, keys.clone()), dist);
+
+                dist += self
+                    .steps_to_collect(key_pos, keys.iter().cloned().filter(|k| k != key).collect());
+
+                result = std::cmp::min(result, dist);
+            }
+        }
+
+        self.cache.insert((a, keys.clone()), result);
+
+        result
+    }
+
+    fn steps_between(&self, a: usize, b: usize, keys: &Vec<char>) -> Option<usize> {
+        let mut visited = HashSet::new();
+        let mut to_visit = VecDeque::new();
+
+        to_visit.push_front((a, 0));
+        visited.insert(a);
+
+        while let Some((i, steps)) = to_visit.pop_back() {
+            if i == b {
+                return Some(steps);
+            }
+
+            let steps = steps + 1;
+
+            match self.get_tile(i) {
+                Tile::Wall => continue,
+                Tile::Door(c) if keys.contains(&c.to_ascii_lowercase()) => {
+                    // println!("ran into door {} - {:?}", c, keys);
+                    continue;
+                }
+                _ => {
+                    vec![i - self.w, i + self.w, i - 1, i + 1]
+                        .iter()
+                        .for_each(|&pos| {
+                            if visited.insert(pos) {
+                                to_visit.push_front((pos, steps));
+                            }
+                        });
+                }
+            }
+        }
+
+        None
     }
 }
 
@@ -317,13 +189,40 @@ impl fmt::Display for Maze {
     }
 }
 
+fn parse_maze(input: &str) -> Maze {
+    let height = input.lines().count();
+
+    let tiles: Vec<_> = input
+        .chars()
+        .filter(|&c| !c.is_whitespace())
+        .map(|c| match c {
+            '.' => Tile::Empty,
+            '#' => Tile::Wall,
+            '@' => Tile::Entry,
+            'a'..='z' => Tile::Key(c),
+            'A'..='Z' => Tile::Door(c),
+            _ => unreachable!(),
+        })
+        .collect();
+
+    let width = tiles.len() / height;
+
+    Maze {
+        tiles,
+        w: width,
+        h: height,
+        cache: HashMap::new(),
+        other_cache: HashMap::new(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn part1_test1() {
-        let maze = parse_maze(
+        let mut maze = parse_maze(
             "\
 ########################
 #f.D.E.e.C.b.A.@.a.B.c.#
@@ -332,12 +231,12 @@ mod tests {
 ########################",
         );
 
-        assert_eq!(part1(&maze), 86);
+        assert_eq!(part1(&mut maze), 86);
     }
 
     #[test]
     fn part1_test2() {
-        let maze = parse_maze(
+        let mut maze = parse_maze(
             "\
 ########################
 #...............b.C.D.f#
@@ -346,12 +245,12 @@ mod tests {
 ########################",
         );
 
-        assert_eq!(part1(&maze), 132);
+        assert_eq!(part1(&mut maze), 132);
     }
 
     #[test]
     fn part1_test3() {
-        let maze = parse_maze(
+        let mut maze = parse_maze(
             "\
 #################
 #i.G..c...e..H.p#
@@ -364,12 +263,12 @@ mod tests {
 #################",
         );
 
-        assert_eq!(part1(&maze), 136);
+        assert_eq!(part1(&mut maze), 136);
     }
 
     #[test]
     fn part1_test4() {
-        let maze = parse_maze(
+        let mut maze = parse_maze(
             "\
 ########################
 #@..............ac.GI.b#
@@ -379,10 +278,10 @@ mod tests {
 ########################",
         );
 
-        assert_eq!(part1(&maze), 81);
+        assert_eq!(part1(&mut maze), 81);
     }
 
-    #[test]
+    // #[test]
     fn part2_test4() {
         let maze = parse_maze(
             "\
