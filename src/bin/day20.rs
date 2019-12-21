@@ -4,13 +4,11 @@ use std::fmt;
 fn main() {
     let maze = parse_maze(include_str!("../../input/20.txt"));
 
-    println!("{}", maze);
-    println!("{:?}", maze.portals);
-
     let p1 = part1(&maze);
     println!("part 1: {}", p1);
 
-    println!("part 2: {}", "incomplete");
+    let p2 = part2(&maze);
+    println!("part 2: {}", p2);
 }
 
 fn part1(maze: &Maze) -> usize {
@@ -36,18 +34,70 @@ fn part1(maze: &Maze) -> usize {
                 }
             }),
             Tile::Portal(_, _) => {
-                let jump = maze
-                    .portals
-                    .get(&i)
-                    .expect("couldn't find the matching portal!");
-
-                if visited.insert(*jump) {
-                    to_visit.push_front((*jump, steps + 1));
+                if let Some(jump) = maze.portals.get(&i) {
+                    if visited.insert(*jump) {
+                        to_visit.push_front((*jump, steps + 1));
+                    }
                 }
 
                 maze.get_adjacent(i).iter().for_each(|next| {
                     if visited.insert(*next) {
                         to_visit.push_front((*next, steps + 1));
+                    }
+                })
+            }
+        }
+    }
+
+    panic!("couldn't find a way out!");
+}
+
+fn part2(maze: &Maze) -> usize {
+    let mut to_visit = VecDeque::new();
+    let mut visited = HashSet::new();
+
+    let start = maze.get_start();
+    let end = maze.get_end();
+
+    to_visit.push_front((start, 0, 0));
+    visited.insert((start, 0));
+
+    while let Some((i, lvl, steps)) = to_visit.pop_back() {
+        if i == end && lvl == 0 {
+            return steps;
+        } else if lvl > 0 && (i == start || i == end) {
+            // treat this like a wall
+            continue;
+        }
+
+        match maze.tiles[i] {
+            Tile::Void | Tile::Wall => continue,
+            Tile::Empty => maze.get_adjacent(i).iter().for_each(|next| {
+                if visited.insert((*next, lvl)) {
+                    to_visit.push_front((*next, lvl, steps + 1));
+                }
+            }),
+            Tile::Portal(_, _) => {
+                if let Some(jump) = maze.portals.get(&i) {
+                    let lvl = if maze.is_inner(i) {
+                        if lvl == 0 {
+                            // at level 0, treat inner portals like walls
+                            continue;
+                        }
+
+                        lvl - 1
+                    } else {
+                        lvl + 1
+                    };
+
+                    if visited.insert((*jump, lvl)) {
+                        to_visit.push_front((*jump, lvl, steps + 1));
+                    }
+                }
+
+                maze.get_adjacent(i).iter().for_each(|next| {
+                    if visited.insert((*next, lvl)) {
+                        to_visit.push_front((*next, lvl, steps + 1));
                     }
                 })
             }
@@ -79,6 +129,7 @@ struct Maze {
     tiles: Vec<Tile>,
     portals: HashMap<usize, usize>,
     width: usize,
+    height: usize,
 }
 
 impl Maze {
@@ -105,15 +156,19 @@ impl Maze {
             })
             .collect()
     }
+
+    fn is_inner(&self, i: usize) -> bool {
+        let x = i % self.width;
+        let y = i / self.width;
+
+        x == 2 || x == self.width - 3 || y == 2 || y == self.height - 3
+    }
 }
 
 fn parse_maze(input: &str) -> Maze {
     let height = input.lines().count();
 
-    let chars: Vec<_> = input
-        .lines()
-        .flat_map(|line| line.chars().collect::<Vec<_>>())
-        .collect();
+    let chars: Vec<_> = input.chars().filter(|&c| c != '\n').collect();
 
     let width = chars.len() / height;
 
@@ -165,6 +220,7 @@ fn parse_maze(input: &str) -> Maze {
         portals,
         tiles,
         width,
+        height,
     }
 }
 
@@ -196,19 +252,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parser() {
-        let maze = parse_maze(
-            "\
- A \n\
- B \n\
-#.#
-#.#
-#.#
- A \n\
- B \n\
-",
-        );
+    fn part1_test1() {
+        let maze = parse_maze(include_str!("../../test-input/20/test1.txt"));
 
-        assert_eq!(maze.portals, HashMap::new());
+        assert_eq!(part1(&maze), 23);
     }
 }
