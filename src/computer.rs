@@ -44,42 +44,7 @@ pub enum ExecutionResult {
     Halted,
 }
 
-pub mod io {
-    pub trait IoDevice {
-        /**
-         * Read a value from an io device
-         */
-        fn read(&mut self) -> Option<isize>;
-
-        /**
-         * Write a value to an io device
-         */
-        fn write(&mut self, value: isize);
-    }
-
-    #[derive(Debug)]
-    pub struct QueuedIoDevice {
-        queue: std::collections::VecDeque<isize>,
-    }
-
-    impl QueuedIoDevice {
-        pub fn new() -> Self {
-            QueuedIoDevice {
-                queue: std::collections::VecDeque::new(),
-            }
-        }
-    }
-
-    impl IoDevice for QueuedIoDevice {
-        fn read(&mut self) -> Option<isize> {
-            self.queue.pop_back()
-        }
-
-        fn write(&mut self, value: isize) {
-            self.queue.push_front(value);
-        }
-    }
-}
+pub mod io;
 
 // This function is stupid, but I don't know enough about the problem yet to make it better.
 // the problem is that it needs to be an N-tuple were N is the max number of params an opcode
