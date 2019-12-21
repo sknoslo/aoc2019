@@ -2,12 +2,10 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 
 fn main() {
-    let maze = parse_maze(include_str!("../../input/18.txt").trim());
+    let mut maze = parse_maze(include_str!("../../input/18.txt").trim());
 
     let p1 = part1(&maze);
     println!("part 1: {}", p1);
-
-    let mut maze = parse_maze(include_str!("../../input/18.txt").trim());
 
     maze.split_quadrants();
 
@@ -59,8 +57,54 @@ fn part1(maze: &Maze) -> usize {
     min
 }
 
-fn part2(_maze: &Maze) -> usize {
-    0
+fn part2(maze: &Maze) -> usize {
+    let paths = build_paths(&maze);
+
+    let total_keys = maze.get_keys().len();
+
+    let mut to_visit = Vec::new();
+    let mut visited = HashMap::new();
+
+    to_visit.push((vec!['1', '2', '3', '4'], 0, Vec::new()));
+    visited.insert((vec!['1', '2', '3', '4'], Vec::new()), 0);
+
+    let mut min = std::usize::MAX;
+
+    while let Some((pos, steps, collected)) = to_visit.pop() {
+        if collected.len() == total_keys {
+            if steps < min {
+                min = steps;
+            }
+            continue;
+        }
+
+        for (i, cur_key) in pos.iter().enumerate() {
+            if let Some(next_keys) = paths.get(&cur_key) {
+                next_keys.iter().cloned().for_each(|(key, dist, doors)| {
+                    if !collected.contains(&key) && has_required_keys(&collected, &doors) {
+                        let mut next_collected = collected.clone();
+
+                        next_collected.sort();
+                        next_collected.push(key);
+
+                        let mut next_pos = pos.clone();
+                        next_pos[i] = key;
+
+                        let entry = visited
+                            .entry((next_pos.clone(), next_collected.clone()))
+                            .or_insert(std::usize::MAX);
+
+                        if steps + dist < *entry {
+                            *entry = steps + dist;
+                            to_visit.push((next_pos.clone(), steps + dist, next_collected));
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    min
 }
 
 fn has_required_keys(collected: &Vec<char>, doors: &Vec<char>) -> bool {
@@ -123,7 +167,7 @@ fn build_paths(maze: &Maze) -> HashMap<char, Vec<(char, usize, Vec<char>)>> {
 enum Tile {
     Empty,
     Wall,
-    Entry,
+    Entry(char),
     Key(char),
     Door(char),
 }
@@ -131,8 +175,7 @@ enum Tile {
 impl Tile {
     fn label(&self) -> char {
         match self {
-            Tile::Key(c) | Tile::Door(c) => *c,
-            Tile::Entry => '@',
+            Tile::Key(c) | Tile::Door(c) | Tile::Entry(c) => *c,
             _ => panic!("can only unwrap doors and keys"),
         }
     }
@@ -146,7 +189,7 @@ impl Tile {
 
     fn is_entry(&self) -> bool {
         match self {
-            Tile::Entry => true,
+            Tile::Entry(_) => true,
             _ => false,
         }
     }
@@ -176,24 +219,18 @@ impl Maze {
         self.tiles.iter().cloned().filter(|t| t.is_key()).collect()
     }
 
-    fn get_quad_entry_positions(&self) -> (usize, usize, usize, usize) {
-        let first = self.get_pos_of(Tile::Entry);
-
-        (first, first + 2, first + 2 * self.w, first + 2 * self.w + 2)
-    }
-
     fn split_quadrants(&mut self) {
-        let i = self.get_pos_of(Tile::Entry);
+        let i = self.get_pos_of(Tile::Entry('@'));
 
         self.tiles[i] = Tile::Wall;
         self.tiles[i - self.w] = Tile::Wall;
         self.tiles[i + self.w] = Tile::Wall;
         self.tiles[i - 1] = Tile::Wall;
         self.tiles[i + 1] = Tile::Wall;
-        self.tiles[i - self.w - 1] = Tile::Entry;
-        self.tiles[i - self.w + 1] = Tile::Entry;
-        self.tiles[i + self.w - 1] = Tile::Entry;
-        self.tiles[i + self.w + 1] = Tile::Entry;
+        self.tiles[i - self.w - 1] = Tile::Entry('1');
+        self.tiles[i - self.w + 1] = Tile::Entry('2');
+        self.tiles[i + self.w - 1] = Tile::Entry('3');
+        self.tiles[i + self.w + 1] = Tile::Entry('4');
     }
 }
 
@@ -210,7 +247,7 @@ impl fmt::Display for Maze {
                 match tile {
                     Tile::Empty => '.',
                     Tile::Wall => '#',
-                    Tile::Entry => '@',
+                    Tile::Entry(c) => *c,
                     Tile::Key(c) | Tile::Door(c) => *c,
                 }
             )?;
@@ -229,7 +266,7 @@ fn parse_maze(input: &str) -> Maze {
         .map(|c| match c {
             '.' => Tile::Empty,
             '#' => Tile::Wall,
-            '@' => Tile::Entry,
+            '@' => Tile::Entry('@'),
             'a'..='z' => Tile::Key(c),
             'A'..='Z' => Tile::Door(c),
             _ => unreachable!(),
@@ -323,20 +360,22 @@ mod tests {
         assert_eq!(part1(&mut maze), 81);
     }
 
-    // #[test]
+    #[test]
     fn part2_test4() {
-        let maze = parse_maze(
+        let mut maze = parse_maze(
             "\
 #############
 #g#f.D#..h#l#
 #F###e#E###.#
-#dCba@#@BcIJ#
-#############
-#nK.L@#@G...#
+#dCba...BcIJ#
+#####.@.#####
+#nK.L...G...#
 #M###N#H###.#
 #o#m..#i#jk.#
 #############",
         );
+
+        maze.split_quadrants();
 
         assert_eq!(part2(&maze), 72);
     }
