@@ -57,6 +57,10 @@ impl AsciiDevice {
     pub fn read_non_ascii(&mut self) -> Option<isize> {
         self.non_ascii.pop_back()
     }
+
+    pub fn get_ascii_image(&mut self) -> String {
+        self.queue.iter().rev().collect()
+    }
 }
 
 impl IoDevice for AsciiDevice {
