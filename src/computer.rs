@@ -44,6 +44,13 @@ pub enum ExecutionResult {
     Halted,
 }
 
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum StepResult {
+    Continue,
+    Paused,
+    Halted,
+}
+
 pub mod io;
 
 // This function is stupid, but I don't know enough about the problem yet to make it better.
@@ -188,94 +195,104 @@ impl<T: io::IoDevice + std::fmt::Debug, R: io::IoDevice + std::fmt::Debug> Compu
         }
     }
 
+    pub fn step(&mut self) -> StepResult {
+        match get_opcode_and_mode_garbage(self.read(self.ip)) {
+            (1, m1, m2, m3) => {
+                let p1 = self.ip + 1;
+                let p2 = self.ip + 2;
+                let p3 = self.ip + 3;
+
+                self.writem(p3, self.readm(p1, m1) + self.readm(p2, m2), m3);
+                self.ip += 4;
+            }
+            (2, m1, m2, m3) => {
+                let p1 = self.ip + 1;
+                let p2 = self.ip + 2;
+                let p3 = self.ip + 3;
+
+                self.writem(p3, self.readm(p1, m1) * self.readm(p2, m2), m3);
+                self.ip += 4;
+            }
+            (3, m1, _, _) => {
+                if let Some(input) = self.read_input() {
+                    let p1 = self.ip + 1;
+
+                    self.writem(p1, input, m1);
+                    self.ip += 2;
+                } else {
+                    return StepResult::Paused;
+                }
+            }
+            (4, m1, _, _) => {
+                let p1 = self.ip + 1;
+
+                self.write_output(self.readm(p1, m1));
+                self.ip += 2;
+            }
+            (5, m1, m2, _) => {
+                let p1 = self.ip + 1;
+                let p2 = self.ip + 2;
+
+                if self.readm(p1, m1) != 0 {
+                    self.ip = self.readm(p2, m2);
+                } else {
+                    self.ip += 3;
+                }
+            }
+            (6, m1, m2, _) => {
+                let p1 = self.ip + 1;
+                let p2 = self.ip + 2;
+
+                if self.readm(p1, m1) == 0 {
+                    self.ip = self.readm(p2, m2);
+                } else {
+                    self.ip += 3;
+                }
+            }
+            (7, m1, m2, m3) => {
+                let p1 = self.ip + 1;
+                let p2 = self.ip + 2;
+                let p3 = self.ip + 3;
+
+                let result = self.readm(p1, m1) < self.readm(p2, m2);
+
+                self.writem(p3, result as isize, m3);
+                self.ip += 4;
+            }
+            (8, m1, m2, m3) => {
+                let p1 = self.ip + 1;
+                let p2 = self.ip + 2;
+                let p3 = self.ip + 3;
+
+                let result = self.readm(p1, m1) == self.readm(p2, m2);
+
+                self.writem(p3, result as isize, m3);
+                self.ip += 4;
+            }
+            (9, m1, _, _) => {
+                let p1 = self.ip + 1;
+
+                self.relative_base += self.readm(p1, m1);
+                self.ip += 2;
+            }
+            (99, _, _, _) => {
+                return StepResult::Halted;
+            }
+            (code, m1, m2, m3) => {
+                println!("{}, {:?}, {:?}, {:?}", code, m1, m2, m3);
+                panic!("That shouldn't have happened");
+            }
+        }
+
+        StepResult::Continue
+    }
+
     pub fn run(&mut self) -> ExecutionResult {
         loop {
-            match get_opcode_and_mode_garbage(self.read(self.ip)) {
-                (1, m1, m2, m3) => {
-                    let p1 = self.ip + 1;
-                    let p2 = self.ip + 2;
-                    let p3 = self.ip + 3;
-
-                    self.writem(p3, self.readm(p1, m1) + self.readm(p2, m2), m3);
-                    self.ip += 4;
-                }
-                (2, m1, m2, m3) => {
-                    let p1 = self.ip + 1;
-                    let p2 = self.ip + 2;
-                    let p3 = self.ip + 3;
-
-                    self.writem(p3, self.readm(p1, m1) * self.readm(p2, m2), m3);
-                    self.ip += 4;
-                }
-                (3, m1, _, _) => {
-                    if let Some(input) = self.read_input() {
-                        let p1 = self.ip + 1;
-
-                        self.writem(p1, input, m1);
-                        self.ip += 2;
-                    } else {
-                        return ExecutionResult::Paused;
-                    }
-                }
-                (4, m1, _, _) => {
-                    let p1 = self.ip + 1;
-
-                    self.write_output(self.readm(p1, m1));
-                    self.ip += 2;
-                }
-                (5, m1, m2, _) => {
-                    let p1 = self.ip + 1;
-                    let p2 = self.ip + 2;
-
-                    if self.readm(p1, m1) != 0 {
-                        self.ip = self.readm(p2, m2);
-                    } else {
-                        self.ip += 3;
-                    }
-                }
-                (6, m1, m2, _) => {
-                    let p1 = self.ip + 1;
-                    let p2 = self.ip + 2;
-
-                    if self.readm(p1, m1) == 0 {
-                        self.ip = self.readm(p2, m2);
-                    } else {
-                        self.ip += 3;
-                    }
-                }
-                (7, m1, m2, m3) => {
-                    let p1 = self.ip + 1;
-                    let p2 = self.ip + 2;
-                    let p3 = self.ip + 3;
-
-                    let result = self.readm(p1, m1) < self.readm(p2, m2);
-
-                    self.writem(p3, result as isize, m3);
-                    self.ip += 4;
-                }
-                (8, m1, m2, m3) => {
-                    let p1 = self.ip + 1;
-                    let p2 = self.ip + 2;
-                    let p3 = self.ip + 3;
-
-                    let result = self.readm(p1, m1) == self.readm(p2, m2);
-
-                    self.writem(p3, result as isize, m3);
-                    self.ip += 4;
-                }
-                (9, m1, _, _) => {
-                    let p1 = self.ip + 1;
-
-                    self.relative_base += self.readm(p1, m1);
-                    self.ip += 2;
-                }
-                (99, _, _, _) => {
-                    return ExecutionResult::Halted;
-                }
-                (code, m1, m2, m3) => {
-                    println!("{}, {:?}, {:?}, {:?}", code, m1, m2, m3);
-                    panic!("That shouldn't have happened");
-                }
+            match self.step() {
+                StepResult::Continue => continue,
+                StepResult::Paused => return ExecutionResult::Paused,
+                StepResult::Halted => return ExecutionResult::Halted,
             }
         }
     }
